@@ -198,7 +198,7 @@ void updatePos(int direction) {
 }
 
 void pacMan(int direction) {
-    int r = 11;
+    int r = 10;
 
     glPushMatrix();
     while (direction--) {
