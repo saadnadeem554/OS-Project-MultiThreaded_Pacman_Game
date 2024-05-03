@@ -204,7 +204,7 @@ void pacMan(int direction) {
     while (direction--) {
         glRotatef(90, 0, 0, -1);
     }
-    glColor3f(1, 1, 0);
+    glColor3f(1,1, 0);
     glBegin(GL_TRIANGLE_FAN);
     glVertex2f(0, 0);
     int detail = 30;
@@ -215,6 +215,8 @@ void pacMan(int direction) {
         double y = r * sin(deg * 3.14 / 180);
         glVertex2f(x, y);
     }
+    glColor3f(1,1, 1);
+
     glEnd();
     glPopMatrix();
 }
