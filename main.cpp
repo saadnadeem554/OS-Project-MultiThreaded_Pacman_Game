@@ -57,6 +57,14 @@ struct shared
 }sharedmem;
 int closwindow = 0;
 
+// Ghst structure
+struct GhostData {
+    int x;
+    int y;
+    int direction=2;
+    // Add any other relevant data here
+};
+
 // Mutex to protect user input
 pthread_mutex_t SharedmemMutex = PTHREAD_MUTEX_INITIALIZER;
 // Function to draw the grid with appropriate shapes for pellets, power-ups, and walls
@@ -198,7 +206,139 @@ void initializeGameBoard()
 }
 */
 
-// Function to handle user input
+
+// Function for the ghost controller thread
+/*
+void* ghostController(void* arg) {
+    // Unpack arguments
+    GhostData* ghost = (GhostData*)arg;
+
+    // Ghost controller logic
+    while (true) {
+        // Determine the direction to move based on the player's position
+        pthread_mutex_lock(&SharedmemMutex);
+        int playerX = pacman_x; // Example: get the player's x position
+        int playerY = pacman_y; // Example: get the player's y position
+        pthread_mutex_unlock(&SharedmemMutex);
+
+        int directionX = 0;
+        int directionY = 0;
+
+        // Calculate the direction to move
+        if (ghost->x < playerX) {
+            directionX = 1; // Move right
+        } else if (ghost->x > playerX) {
+            directionX = -1; // Move left
+        }
+        if (ghost->y < playerY) {
+            directionY = 1; // Move down
+        } else if (ghost->y > playerY) {
+            directionY = -1; // Move up
+        }
+
+        // Update ghost position
+        ghost->x += directionX * CELL_SIZE;
+        ghost->y += directionY*CELL_SIZE;
+
+        // Sleep for a short duration to control the speed of the ghost
+        usleep(200000); // Adjust the sleep duration as needed
+    }
+
+    // Return NULL when thread exits
+    pthread_exit(NULL);
+}
+*/
+
+
+//User
+void* ghostController(void* arg) {
+    // Unpack arguments
+    GhostData* ghost = (GhostData*)arg;
+
+    // Ghost controller logic
+    while (true) 
+    {
+        int directionX = 0;
+        int directionY = 0;
+        
+        bool chosen = false;
+        
+        if (ghost->direction == 1 || ghost->direction == 2) { // Up or down
+            if (rand() % 2 == 0) { // Randomly choose left or right
+                if (gameMap[ghost->y / CELL_SIZE][(ghost->x + CELL_SIZE) / CELL_SIZE] != 1 &&
+                    gameMap[ghost->y / CELL_SIZE][(ghost->x + CELL_SIZE) / CELL_SIZE] != -1 &&
+                    gameMap[ghost->y / CELL_SIZE][(ghost->x + CELL_SIZE) / CELL_SIZE] != -2) {
+                    directionX = 1;
+                    chosen = true;
+                    ghost->direction = 4;
+                }
+            } else {
+                if (gameMap[ghost->y / CELL_SIZE][(ghost->x - CELL_SIZE) / CELL_SIZE] != 1 &&
+                    gameMap[ghost->y / CELL_SIZE][(ghost->x - CELL_SIZE) / CELL_SIZE] != -1 &&
+                    gameMap[ghost->y / CELL_SIZE][(ghost->x - CELL_SIZE) / CELL_SIZE] != -2) {
+                    directionX = -1;
+                    chosen = true;
+                    ghost->direction = 3;
+                }
+            }
+        } else if (ghost->direction == 3 || ghost->direction == 4) { // Left or right
+            if (rand() % 2 == 0) { // Randomly choose up or down
+                if (gameMap[(ghost->y + CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != 1 &&
+                    gameMap[(ghost->y + CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -1 &&
+                    gameMap[(ghost->y + CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -2) {
+                    directionY = 1;
+                    chosen = true;
+                    ghost->direction = 1;
+                }
+            } else {
+                if (gameMap[(ghost->y - CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != 1 &&
+                    gameMap[(ghost->y - CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -1 &&
+                    gameMap[(ghost->y - CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -2) {
+                    directionY = -1;
+                    chosen = true;
+                    ghost->direction = 2;
+                }
+            }
+        }
+        
+        if (!chosen) {
+            // Continue in current direction
+            if (ghost->direction == 1) {
+                directionY = 1;
+            } else if (ghost->direction == 2) {
+                directionY = -1;
+            } else if (ghost->direction == 3) {
+                directionX = -1;
+            } else {
+                directionX = 1;
+            }
+        }
+
+        int nextX = ghost->x + directionX * CELL_SIZE;
+        int nextY = ghost->y + directionY * CELL_SIZE;
+        
+        // Check for collisions with walls
+        if (nextX >= 0 && nextX < 30 * CELL_SIZE && nextY >= 0 && nextY < 30 * CELL_SIZE &&
+            (gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 0 || gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 2)) {
+            ghost->x += directionX * CELL_SIZE;
+            ghost->y += directionY * CELL_SIZE;
+        }
+
+        //if close
+        // Sleep for a short duration to control the speed of the ghost
+        if(closwindow == 1)
+            {
+                pthread_exit(NULL);
+            }
+        usleep(200000); // Adjust the sleep duration as needed
+    }
+    pthread_exit(NULL);
+}
+
+
+
+
+// Function to handle user input (UI TREAD)
 void* userInput(void* arg) {
     // Unpack arguments
     sf::RenderWindow* window = (sf::RenderWindow*) arg;
@@ -299,18 +439,23 @@ int main() {
     sf::RenderWindow window(sf::VideoMode(1000, 1000), "SFML window");
     // Create the yellow circle (player)
     sf::CircleShape pacman_shape(25/2);
+    sf::CircleShape ghost_shape(25/2);
     pacman_shape.setFillColor(sf::Color::Yellow);
+    ghost_shape.setFillColor(sf::Color::Red);
     pacman_shape.setPosition(25/8, 25/4); // Set initial position to (100, 50)
-
+    // set ghost position to (10, 10)
+    ghost_shape.setPosition(35, 38);
     // Create thread for user input
     pthread_t userInputThread;
     pthread_create(&userInputThread, nullptr, userInput, &window);
 
-    // Create thread for movement
-    //pthread_t moveThread;
-    //pthread_create(&moveThread, nullptr, reinterpret_cast<void* ()(void)>(movePacman), nullptr);
+    // Initialize ghosts' data
+    GhostData ghost1 = {35, 38}; // Example initial position
+    // Initialize other ghost data as needed
 
-
+    // Create threads for ghost controllers
+    pthread_t ghost1Thread;
+    pthread_create(&ghost1Thread, nullptr, ghostController, &ghost1);
     // Main loop
     while (window.isOpen()) 
     {
@@ -318,18 +463,23 @@ int main() {
         window.clear();
         drawGrid(window);
         movePacman();
+        //moveGhost(ghost1);
         pacman_shape.setPosition(pacman_x, pacman_y); // Update pacman position
+        ghost_shape.setPosition(ghost1.x, ghost1.y); // Update ghost position
         window.draw(pacman_shape); // Draw the player (yellow circle)
+        window.draw(ghost_shape); // Draw the ghost (red circle)
         window.display();
         usleep(150000); // Sleep for 0.3 seconds
         if(closwindow == 1)
         {
             window.close();
         }
+        //cout<<"pacman_x: "<<pacman_x<<" pacman_y: "<<pacman_y<<endl;
     }
 
     // Join threads
     pthread_join(userInputThread, nullptr);
+    pthread_join(ghost1Thread, nullptr);
     //pthread_join(moveThread, nullptr);
     // Destroy mutexes
     pthread_mutex_destroy(&SharedmemMutex);
@@ -337,3 +487,7 @@ int main() {
 
     return 0;
 }
+
+
+
+        
