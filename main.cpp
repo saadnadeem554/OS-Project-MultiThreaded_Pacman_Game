@@ -6,7 +6,17 @@
 #include <SFML/System.hpp>
 #include <SFML/Window.hpp>
 #include <unistd.h>
-
+#include <iostream>
+#include <cstdlib>
+#include <ctime>
+#include <pthread.h>
+#include <SFML/Graphics.hpp>
+#include <SFML/System.hpp>
+#include <SFML/Window.hpp>
+#include <unistd.h>
+#include <queue>
+#include <vector>
+#include <climits>
 using namespace std;
 using namespace sf;
 // Define game board size
@@ -67,6 +77,143 @@ struct GhostData {
     int direction=2;
     // Add any other relevant data here
 };
+
+
+
+
+
+
+
+// Define a structure to represent a cell in the grid
+struct Cell {
+    int x, y;
+    int distance;
+    bool operator<(const Cell &other) const {
+        return distance > other.distance; // For min-heap
+    }
+};
+
+// Define helper function to calculate Manhattan distance
+int manhattanDistance(int x1, int y1, int x2, int y2) {
+    return abs(x1 - x2) + abs(y1 - y2);
+}
+
+// Dijkstra's algorithm function
+int** dijkstra(int srcX, int srcY, int destX, int destY, const int gameMap[ROWS][COLS]) {
+    // Initialize distances to infinity
+    int** dist = new int*[ROWS];
+    for (int i = 0; i < ROWS; ++i) {
+        dist[i] = new int[COLS];
+        for (int j = 0; j < COLS; ++j) {
+            dist[i][j] = INT_MAX;
+        }
+    }
+
+    // Initialize priority queue
+    priority_queue<Cell> pq;
+
+    // Push source cell into priority queue
+    pq.push({srcX, srcY, 0});
+    dist[srcX][srcY] = 0;
+
+    // Define possible movements
+    int dx[] = {0, 0, -1, 1}; // Up, down, left, right
+    int dy[] = {-1, 1, 0, 0};
+
+    while (!pq.empty()) {
+        Cell curr = pq.top();
+        pq.pop();
+
+        if (curr.x == destX && curr.y == destY) {
+            // Found destination, stop search
+            break;
+        }
+
+        // Explore neighbors
+        for (int i = 0; i < 4; ++i) {
+            int newX = curr.x + dx[i];
+            int newY = curr.y + dy[i];
+
+            if (newX >= 0 && newX < ROWS && newY >= 0 && newY < COLS && gameMap[newY / CELL_SIZE][newX / CELL_SIZE] != 1 && dist[newX][newY] > curr.distance + 1) 
+            {
+                dist[newX][newY] = curr.distance + 1;
+                pq.push({newX, newY, curr.distance + 1});
+            }
+        }
+    }
+
+    return dist;
+}
+
+
+
+
+
+void moveGhost(GhostData &ghost) {
+    // Use Dijkstra's algorithm to find the shortest path to pacman
+    int** shortestPath = dijkstra(ghost.x, ghost.y, pacman_x, pacman_y, gameMap);
+    
+    // Get the next cell in the shortest path
+    int nextX = pacman_x;
+    int nextY = pacman_y;
+
+    // Update ghost direction based on the next cell
+    if (nextX < ghost.x) {
+        ghost.direction = 3; // Left
+    } else if (nextX > ghost.x) {
+        ghost.direction = 4; // Right
+    } else if (nextY < ghost.y) {
+        ghost.direction = 1; // Up
+    } else if (nextY > ghost.y) {
+        ghost.direction = 2; // Down
+    }
+
+    // Move the ghost to the next cell
+    ghost.x = nextX;
+    ghost.y = nextY;
+
+    // Free memory allocated for the shortest path
+    for (int i = 0; i < ROWS; ++i) {
+        delete[] shortestPath[i];
+    }
+    delete[] shortestPath;
+}
+
+
+// Ghost controller function
+void *ghostController2(void *arg) {
+    // Unpack arguments
+    GhostData *ghost = (GhostData *)arg;
+
+    // Ghost controller logic
+    while (true) {
+        // Move ghost
+        moveGhost(*ghost);
+
+        // Sleep for a short duration to control the speed of the ghost
+        usleep(200000); // Adjust the sleep duration as needed
+    }
+
+    pthread_exit(NULL);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // Mutex to protect user input
 pthread_mutex_t SharedmemMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -343,6 +490,8 @@ void movePacman()
 }
 
 int main() {
+               
+
     //XInitThreads();
     // Initialize random seed
     srand(time(nullptr));
@@ -363,6 +512,7 @@ int main() {
     // set ghost position to (10, 10)
     ghost_shape1.setPosition(35, 38);
     ghost_shape2.setPosition(65, 38);
+
     // Create thread for user input
     pthread_t userInputThread;
     pthread_create(&userInputThread, nullptr, userInput, &window);
@@ -379,7 +529,7 @@ int main() {
     pthread_t ghost2Thread;
 
     pthread_create(&ghost1Thread, nullptr, ghostController, &ghost1);
-    pthread_create(&ghost2Thread, nullptr, ghostController, &ghost2);
+    pthread_create(&ghost2Thread, nullptr, ghostController2, &ghost2);
     // Main loop
     while (window.isOpen()) 
     {
