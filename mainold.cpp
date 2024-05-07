@@ -18,7 +18,7 @@ using namespace sf;
 int pacman_x = CELL_SIZE + 25/8;
 int pacman_y = CELL_SIZE + 25/4;
 
-int gameMapSkeleton[ROWS][COLS] = {
+int gameMap[ROWS][COLS] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
         {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
         {1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1},
@@ -30,13 +30,13 @@ int gameMapSkeleton[ROWS][COLS] = {
         {1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1},
         {1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1},
          {1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1},
-         {1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1},
-         {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
-         {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, -1, -1, -1, -1, 0, 0, -1, -1, -1, -1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
-         {1, 1, 1, 1, 1, 1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1},
-         {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
-         {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
-         {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
+         {0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 1, 0, 1, 1, 0, -1, -1, -1, -1, 0, 0, -1, -1, -1, -1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 1, 0, 1, 1, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0},
          {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
          {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
          {1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1},
@@ -50,9 +50,6 @@ int gameMapSkeleton[ROWS][COLS] = {
          {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
          {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 };
-int gameMap[ROWS][COLS] = {0};
-int totalScorePallet;
-int Score;
 // shared memory of user direcion
 struct shared
 {
@@ -70,36 +67,6 @@ struct GhostData {
 
 // Mutex to protect user input
 pthread_mutex_t SharedmemMutex = PTHREAD_MUTEX_INITIALIZER;
-
-// function that puts score pallets in gamegrid
-void intitializeGrid()
-{
-    totalScorePallet = 0;
-    Score = 0;
-    // clear game map
-    for(int i=0; i<ROWS; i++)
-    {
-        for(int j=0; j<COLS; j++)
-        {
-            gameMap[i][j] = 0;
-        }
-    }
-    // in the gameMapSkeleton wherever there is a 0 put a score pallet there
-    for(int i=0; i<ROWS; i++)
-    {
-        for(int j=0; j<COLS; j++)
-        {
-            if(gameMapSkeleton[i][j] == 0)
-            {
-                gameMap[i][j] = 2;
-                totalScorePallet++;
-            }
-            else
-            gameMap[i][j] = gameMapSkeleton[i][j];
-        }
-    }
-}
-
 // Function to draw the grid with appropriate shapes for pellets, power-ups, and walls
 void drawGrid(sf::RenderWindow& window)
 {
@@ -121,7 +88,12 @@ void drawGrid(sf::RenderWindow& window)
                     pelletShape.setPosition(j * CELL_SIZE + CELL_SIZE / 2 - 5, i * CELL_SIZE + CELL_SIZE / 2 - 5);
                     window.draw(pelletShape);
                     break;
-                
+                case 3:
+                    // Draw slightly bigger red circle for power-up
+                    powerUpShape.setFillColor(sf::Color::Red);
+                    powerUpShape.setPosition(j * CELL_SIZE + CELL_SIZE / 2 - 8, i * CELL_SIZE + CELL_SIZE / 2 - 8);
+                    window.draw(powerUpShape);
+                    break;
                 case 1:
                     // Draw blue rectangle for wall
                    
@@ -136,11 +108,146 @@ void drawGrid(sf::RenderWindow& window)
                     wallShape.setPosition(j * CELL_SIZE, i * CELL_SIZE);
                     window.draw(wallShape);
                     break;
-               
+                case -2:
+                    // Draw blue rectangle for fixed wall
+                    wallShape.setFillColor(sf::Color(100, 10, 255));
+                    wallShape.setPosition(j * CELL_SIZE, i * CELL_SIZE);
+                    window.draw(wallShape);
+                    break;
             }
         }
     }
 }
+
+
+/*
+// Function to initialize the game board with values
+void initializeGameBoard()
+{
+    for (int i = 0; i < ROWS; i++)
+    {
+        for (int j = 0; j < COLS; j++)
+        {
+            if ((i == 0 || j == 0) || (i == ROWS - 1 || j == COLS - 1)) {
+                // Fixed walls
+                gameMap[i][j] = -2;
+            }
+            // Ghost house
+            else if((i==10 && j>=10)&&(i==10 && j<=14)){
+                if(i!=10 || j!=12)
+                gameMap[i][j] = -1;
+            }
+            else if((i==14 && j>=10)&&(i==14 && j<=14)){
+                gameMap[i][j] = -1;
+            }
+            else if((j==10 && i>=10)&&(j==10 && i<=14)){
+                gameMap[i][j] = -1;
+            }
+            else if((j==14 && i>=10)&&(j==14 && i<=14)){
+                gameMap[i][j] = -1;
+            }
+            // Openings
+            else if(i==12 || j==12)
+            {
+                gameMap[i][j] = 0;
+                
+            }
+            // Small square
+            else if((i==6 && j>=6)&&(i==6 && j<=18)){
+                gameMap[i][j] = 1;
+            }
+            else if((i==18 && j>=6)&&(i==18 && j<=18)){
+                gameMap[i][j] = 1;
+            }
+            else if((j==6 && i>=6)&&(j==6 && i<=18)){
+                gameMap[i][j] = 1;
+            }
+            else if((j==18 && i>=6)&&(j==18 && i<=18)){
+                gameMap[i][j] = 1;
+            }
+            // Bigger square
+            else if((i==4 && j>=4)&&(i==4 && j<=20)){
+                gameMap[i][j] = 1;
+            }
+            else if((i==20 && j>=4)&&(i==20 && j<=20)){
+                gameMap[i][j] = 1;
+            }
+            else if((j==4 && i>=4)&&(j==4 && i<=20)){
+                gameMap[i][j] = 1;
+            }
+            else if((j==20 && i>=4)&&(j==20 && i<=20)){
+                gameMap[i][j] = 1;
+            }
+            // Bigger square
+            else if((i==2 && j>=2)&&(i==2 && j<=22)){
+                gameMap[i][j] = 1;
+            }
+            else if((i==22 && j>=2)&&(i==22 && j<=22)){
+                gameMap[i][j] = 1;
+            }
+            else if((j==2 && i>=2)&&(j==2 && i<=22)){
+                gameMap[i][j] = 1;
+            }
+            else if((j==22 && i>=2)&&(j==22 && i<=22)){
+                gameMap[i][j] = 1;
+            }
+            else 
+            {
+                // Randomly place pellets and power-ups
+                int randNum = rand() % 5; // Generate random number from 0 to 4
+                if (randNum == 2) {
+                    gameMap[i][j] = 2 + rand() % 3; // Randomly assign power-up value (2, 3, or 4)
+                } else {
+                    gameMap[i][j] = 0;
+                }
+            }
+        }
+    }
+}
+*/
+
+
+// Function for the ghost controller thread
+/*
+void* ghostController(void* arg) {
+    // Unpack arguments
+    GhostData* ghost = (GhostData*)arg;
+
+    // Ghost controller logic
+    while (true) {
+        // Determine the direction to move based on the player's position
+        pthread_mutex_lock(&SharedmemMutex);
+        int playerX = pacman_x; // Example: get the player's x position
+        int playerY = pacman_y; // Example: get the player's y position
+        pthread_mutex_unlock(&SharedmemMutex);
+
+        int directionX = 0;
+        int directionY = 0;
+
+        // Calculate the direction to move
+        if (ghost->x < playerX) {
+            directionX = 1; // Move right
+        } else if (ghost->x > playerX) {
+            directionX = -1; // Move left
+        }
+        if (ghost->y < playerY) {
+            directionY = 1; // Move down
+        } else if (ghost->y > playerY) {
+            directionY = -1; // Move up
+        }
+
+        // Update ghost position
+        ghost->x += directionX * CELL_SIZE;
+        ghost->y += directionY*CELL_SIZE;
+
+        // Sleep for a short duration to control the speed of the ghost
+        usleep(200000); // Adjust the sleep duration as needed
+    }
+
+    // Return NULL when thread exits
+    pthread_exit(NULL);
+}
+*/
 
 
 //User
@@ -308,7 +415,7 @@ void movePacman()
     int nextX = pacman_x + pacman_direction_x * CELL_SIZE;
     int nextY = pacman_y + pacman_direction_y * CELL_SIZE;
     if (abs(gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE]) == 1 || gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == -1 || gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == -2) {
-           // cout << "Wall detected!" << endl;
+            cout << "Wall detected!" << endl;
             // set to the old direction
 
         } 
@@ -317,16 +424,8 @@ void movePacman()
     pacman_x += pacman_direction_x * CELL_SIZE;
     pacman_y += pacman_direction_y * CELL_SIZE;
     }
-
-    // ScorePallet Detection
-    if (abs(gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE]) == 2) 
-    {
-        // ScorePallet found, update gameMap and increment score
-        gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] = 0;
-        totalScorePallet--;
-        Score++;
-        cout<<Score<<endl;
-    } 
+    
+    
 }
 
 int main() {
@@ -334,7 +433,7 @@ int main() {
     // Initialize random seed
     srand(time(nullptr));
     // Initialize game board
-    intitializeGrid();
+    //initializeGameBoard();
 
     // Create SFML window
     sf::RenderWindow window(sf::VideoMode(1000, 1000), "SFML window");
@@ -361,9 +460,9 @@ int main() {
     while (window.isOpen()) 
     {
         // Clear, draw, and display
-        movePacman();
         window.clear();
         drawGrid(window);
+        movePacman();
         //moveGhost(ghost1);
         pacman_shape.setPosition(pacman_x, pacman_y); // Update pacman position
         ghost_shape.setPosition(ghost1.x, ghost1.y); // Update ghost position
