@@ -251,6 +251,91 @@ void intitializeGrid()
     }
 }
 
+// Function to initialize the game board with values
+void initializeGameBoard()
+{
+    for (int i = 0; i < ROWS; i++)
+    {
+        for (int j = 0; j < COLS; j++)
+        {
+            if ((i == 0 || j == 0) || (i == ROWS - 1 || j == COLS - 1)) {
+                // Fixed walls
+                gameMap[i][j] = -2;
+            }
+            // Ghost house
+            else if((i==10 && j>=10)&&(i==10 && j<=14)){
+                if(i!=10 || j!=12)
+                gameMap[i][j] = -1;
+            }
+            else if((i==14 && j>=10)&&(i==14 && j<=14)){
+                gameMap[i][j] = -1;
+            }
+            else if((j==10 && i>=10)&&(j==10 && i<=14)){
+                gameMap[i][j] = -1;
+            }
+            else if((j==14 && i>=10)&&(j==14 && i<=14)){
+                gameMap[i][j] = -1;
+            }
+            // Openings
+            else if(i==12 || j==12)
+            {
+                gameMap[i][j] = 0;
+                
+            }
+            // Small square
+            else if((i==6 && j>=6)&&(i==6 && j<=18)){
+                gameMap[i][j] = 1;
+            }
+            else if((i==18 && j>=6)&&(i==18 && j<=18)){
+                gameMap[i][j] = 1;
+            }
+            else if((j==6 && i>=6)&&(j==6 && i<=18)){
+                gameMap[i][j] = 1;
+            }
+            else if((j==18 && i>=6)&&(j==18 && i<=18)){
+                gameMap[i][j] = 1;
+            }
+            // Bigger square
+            else if((i==4 && j>=4)&&(i==4 && j<=20)){
+                gameMap[i][j] = 1;
+            }
+            else if((i==20 && j>=4)&&(i==20 && j<=20)){
+                gameMap[i][j] = 1;
+            }
+            else if((j==4 && i>=4)&&(j==4 && i<=20)){
+                gameMap[i][j] = 1;
+            }
+            else if((j==20 && i>=4)&&(j==20 && i<=20)){
+                gameMap[i][j] = 1;
+            }
+            // Bigger square
+            else if((i==2 && j>=2)&&(i==2 && j<=22)){
+                gameMap[i][j] = 1;
+            }
+            else if((i==22 && j>=2)&&(i==22 && j<=22)){
+                gameMap[i][j] = 1;
+            }
+            else if((j==2 && i>=2)&&(j==2 && i<=22)){
+                gameMap[i][j] = 1;
+            }
+            else if((j==22 && i>=2)&&(j==22 && i<=22)){
+                gameMap[i][j] = 1;
+            }
+            else 
+            {
+                // Randomly place pellets and power-ups
+                int randNum = rand() % 5; // Generate random number from 0 to 4
+                if (randNum == 2) {
+                    gameMap[i][j] = 2 + rand() % 3; // Randomly assign power-up value (2, 3, or 4)
+                } else {
+                    gameMap[i][j] = 0;
+                }
+            }
+        }
+    }
+}
+
+
 // Function to draw the grid with appropriate shapes for pellets, power-ups, and walls
 void drawGrid(sf::RenderWindow& window)
 {
@@ -301,16 +386,76 @@ void drawGrid(sf::RenderWindow& window)
 
 
 
-int bfs_shortest_distance(int grid[][30], pair<int, int> start_pos, pair<int, int> end_pos) {
+struct Node {
+    pair<int, int> pos;
+    int g_score;
+    int h_score;
+    Node* parent;
+
+    Node(pair<int, int> pos, int g_score, int h_score, Node* parent) : pos(pos), g_score(g_score), h_score(h_score), parent(parent) {}
+
+    int f_score() const {
+        return g_score + h_score;
+    }
+};
+
+int manhattan_distance(pair<int, int> a, pair<int, int> b) {
+    return abs(a.first - b.first) + abs(a.second - b.second);
+}
+
+bool isValid(int row, int col, int  grid[][30]) {
+    return (row >= 0 && col >= 0 && (grid[row][col] == 2 || grid[row][col] == 0));
+}
+
+vector<pair<int, int>> getNeighbors(pair<int, int> pos, int rows, int cols) {
+    vector<pair<int, int>> neighbors;
+    int dr[] = {-1, 1, 0, 0};
+    int dc[] = {0, 0, -1, 1};
+
+    for (int i = 0; i < 4; ++i) {
+        int new_row = pos.first + dr[i];
+        int new_col = pos.second + dc[i];
+        if (new_row >= 0 && new_row < rows && new_col >= 0 && new_col < cols) {
+            neighbors.push_back({new_row, new_col});
+        }
+    }
+
+    return neighbors;
+}
+
+
+
+int bfs_shortest_distance(int grid[][30], pair<int, int> start_pos, pair<int, int> end_pos, pair<int, int> called_pos) {
     int rows = 30;
     int cols = 30;
-    vector<vector<bool>> visited(rows, vector<bool>(cols, false));
-    vector<vector<int>> distance(rows, vector<int>(cols, INT_MAX)); // Initialize distances to infinity
+    //cout<<"start_pos"<<start_pos.first<<" "<<start_pos.second<<endl;
+    //vector<vector<bool>> visited(rows, vector<bool>(cols, false));
+    bool visited[30][30];
+    //vector<vector<int>> distance(rows, vector<int>(cols, INT_MAX)); // Initialize distances to infinity
+    int distance[30][30];
+    for(int i=0; i<rows; i++)
+    {
+        for(int j=0; j<cols; j++)
+        {
+            if(grid[i][j] == 1 || grid[i][j] == -1)
+            {
+                visited[i][j] = true;
+                distance[i][j] = 0;
+            }
+            else
+            {
+                visited[i][j] = false;
+                distance[i][j] = INT_MAX;
+            }
+        }
+    }
 
     queue<pair<int, int>> q;
     q.push(start_pos);
     visited[start_pos.first][start_pos.second] = true;
+    visited[called_pos.first][called_pos.second] = true;
     distance[start_pos.first][start_pos.second] = 0;
+    distance[called_pos.first][called_pos.second] = 0;
 
     int dr[] = {-1, 1, 0, 0};
     int dc[] = {0, 0, -1, 1};
@@ -318,7 +463,6 @@ int bfs_shortest_distance(int grid[][30], pair<int, int> start_pos, pair<int, in
     while (!q.empty()) {
         pair<int, int> current_pos = q.front();
         q.pop();
-
         if (current_pos == end_pos) {
             return distance[current_pos.first][current_pos.second]; // Return distance when destination is reached
         }
@@ -326,65 +470,121 @@ int bfs_shortest_distance(int grid[][30], pair<int, int> start_pos, pair<int, in
         for (int j = 0; j < 4; ++j) {
             int new_row = current_pos.first + dr[j];
             int new_col = current_pos.second + dc[j];
-            if (new_row >= 0 && new_row < rows && new_col >= 0 && new_col < cols && (grid[new_row][new_col] == 2 || grid[new_row][new_col] == 0) && !visited[new_row][new_col]) {
+            //cout<<new_row<<" "<<new_col<<endl;
+            //cout<<visited[new_row][new_col]<<endl;
+            if (new_row > 0 && new_row < rows && new_col > 0 && new_col < cols && (grid[new_row][new_col] == 2 || grid[new_row][new_col] == 0) && !visited[new_row][new_col]) {
                 visited[new_row][new_col] = true;
                 distance[new_row][new_col] = distance[current_pos.first][current_pos.second] + 1;
                 q.push({new_row, new_col});
-            }
+         }
         }
     }
 
     return INT_MAX; // No path found
 }
 
-bool isValid(int row, int col, int rows, int cols, vector<vector<int>>& grid, vector<vector<bool>>& visited) {
-    return (row >= 0 && row < rows && col >= 0 && col < cols && (grid[row][col] == 2 || grid[row][col] == 0) && !visited[row][col]);
+bool isValid(int row, int col, vector<vector<int>>& grid) {
+    return (row >= 0 && col >= 0 && (grid[row][col] == 2 || grid[row][col] == 0));
 }
 
-int findShortestDistance(int grid[][30], pair<int, int> start_pos, pair<int, int> end_pos) {
+
+
+int bfs_encountered_positions(int grid[][30], pair<int, int> start_pos, pair<int, int> end_pos) {
     int rows = 30;
     int cols = 30;
-    vector<vector<int>> gridVec(rows, vector<int>(cols, 0));
     vector<vector<bool>> visited(rows, vector<bool>(cols, false));
-
-    for (int i = 0; i < rows; ++i) {
-        for (int j = 0; j < cols; ++j) {
-            gridVec[i][j] = grid[i][j];
+    for(int i=0; i<rows; i++)
+    {
+        for(int j=0; j<cols; j++)
+        {
+            if(grid[i][j] == 1 || grid[i][j] == -1)
+            visited[i][j] = true;
         }
     }
 
-    stack<pair<int, int>> st;
-    st.push(start_pos);
+    queue<pair<int, int>> q;
+    q.push(start_pos);
     visited[start_pos.first][start_pos.second] = true;
 
-    vector<pair<int, int>> directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+    int encountered_positions = 0;
 
-    while (!st.empty()) {
-        pair<int, int> current_pos = st.top();
-        st.pop();
+    while (!q.empty()) {
+        pair<int, int> current_pos = q.front();
+        q.pop();
 
+        // Check if we've reached the end position
         if (current_pos == end_pos) {
-            return visited[current_pos.first][current_pos.second] - 1; // Return distance when destination is reached
+            return encountered_positions;
         }
 
-        for (auto dir : directions) {
-            int new_row = current_pos.first + dir.first;
-            int new_col = current_pos.second + dir.second;
-            if (isValid(new_row, new_col, rows, cols, gridVec, visited)) {
-                visited[new_row][new_col] = visited[current_pos.first][current_pos.second] + 1;
-                st.push({new_row, new_col});
+
+        // Define the directions (up, down, left, right)
+        int dr[] = {-1, 1, 0, 0};
+        int dc[] = {0, 0, -1, 1};
+
+        // Explore neighbors
+        for (int i = 0; i < 4; ++i) {
+            int new_row = current_pos.first + dr[i];
+            int new_col = current_pos.second + dc[i];
+            if (new_row > 0 && new_row < rows && new_col > 0 && new_col < cols &&
+                (grid[new_row][new_col] == 2 || grid[new_row][new_col] == 0) && !visited[new_row][new_col]) {
+                visited[new_row][new_col] = true;
+        // Increment the encountered positions count
+        encountered_positions++;
+                q.push({new_row, new_col});
             }
         }
     }
 
-    return -1; // No path found
+    // If end position is not reached, return -1
+    return INT_MAX;
 }
+
+int shortestPath(int startX, int startY, int destX, int destY, int gameMap[ROWS][COLS]) {
+    bool visited[ROWS][COLS] = {false};
+    std::queue<std::pair<int, int>> q;
+    q.push({startX, startY});
+    visited[startX][startY] = true;
+
+    int dx[] = {0, 0, 1, -1};
+    int dy[] = {1, -1, 0, 0};
+    int dist[ROWS][COLS] = {0}; // Store distances from start position
+
+    while (!q.empty()) {
+        int x = q.front().first;
+        int y = q.front().second;
+        q.pop();
+
+        // Check if destination is reached
+        if (x == destX && y == destY) {
+            return dist[x][y];
+        }
+
+        // Explore adjacent cells
+        for (int i = 0; i < 4; ++i) {
+            int newX = x + dx[i];
+            int newY = y + dy[i];
+
+            // Check validity and unvisited status
+            if (isValid(newX, newY, gameMap) && !visited[newX][newY]) {
+                q.push({newX, newY});
+                visited[newX][newY] = true;
+                dist[newX][newY] = dist[x][y] + 1; // Update distance
+            }
+        }
+    }
+
+    // If destination is unreachable
+    return INT_MAX;
+}
+
 void* ghostController3(void* arg) {
     GhostData* ghost = (GhostData*)arg;
     while(true)
     {
-        int current_posx = ghost->x;
-        int current_posy = ghost->y;
+        cout<<ghost->x<<" "<<ghost->y<<endl;
+    int current_posx = ghost->x;
+    int current_posy = ghost->y;
 
       int shortest_distance1=222220; 
       int shortest_distance2=222220;
@@ -393,47 +593,77 @@ void* ghostController3(void* arg) {
       int shortest_distance4=222220;  
         if(gameMap[current_posy / CELL_SIZE][((current_posx ) / CELL_SIZE)+1]==0 || gameMap[current_posy / CELL_SIZE][((current_posx ) / CELL_SIZE)+ 1]==2)
         {
-            cout<<current_posx / CELL_SIZE + 1<<" "<<endl;
-            cout<<"Grid val"<<gameMap[current_posy / CELL_SIZE][((current_posx ) / CELL_SIZE)+1]<<endl;
-            pair<int, int> start_pos = {current_posx / CELL_SIZE + 1 , (current_posy/ CELL_SIZE)};
-            pair<int, int> end_pos = {pacman_x/CELL_SIZE, pacman_y/CELL_SIZE};
-             shortest_distance1 = findShortestDistance(gameMap, start_pos, end_pos);
-             cout<<"right"<<endl;
+            //cout<<current_posx / CELL_SIZE + 1<<" "<<endl;
+            //cout<<"Grid val"<<gameMap[current_posy / CELL_SIZE][((current_posx ) / CELL_SIZE)+1]<<endl;
+            //pair<int, int> start_pos = {current_posx / CELL_SIZE + 1 , (current_posy/ CELL_SIZE)};
+            //pair<int, int> called_pos = {current_posx / CELL_SIZE , (current_posy/ CELL_SIZE)};
+            //pair<int, int> end_pos = {pacman_x/CELL_SIZE, pacman_y/CELL_SIZE};
+
+            //shortest_distance1 = bfs_shortest_distance(gameMap, start_pos, end_pos, called_pos);
+            //shortest_distance1 = bfs_encountered_positions(gameMap, start_pos, end_pos);
+             //cout<<"right"<<endl;
+                int startX = ghost->x / CELL_SIZE + 1;
+                int startY = ghost->y / CELL_SIZE;
+                int destX = pacman_x/CELL_SIZE;
+                int destY = pacman_y/CELL_SIZE;
+            shortest_distance1 = shortestPath(startX,startY, destX, destY, gameMap);
         }
         if(gameMap[current_posy / CELL_SIZE][current_posx  / CELL_SIZE - 1]==0 || gameMap[current_posy / CELL_SIZE][current_posx  / CELL_SIZE - 1]==2)
         {
-            pair<int, int> start_pos = {current_posx / CELL_SIZE -1, (current_posy/ CELL_SIZE)};
-            pair<int, int> end_pos = {pacman_x/CELL_SIZE, pacman_y/CELL_SIZE};
-
-            shortest_distance2 = findShortestDistance(gameMap, start_pos, end_pos);
+            //pair<int, int> start_pos = {current_posx / CELL_SIZE -1, (current_posy/ CELL_SIZE)};
+            //pair<int, int> end_pos = {pacman_x/CELL_SIZE, pacman_y/CELL_SIZE};
+            //pair<int, int> called_pos = {current_posx / CELL_SIZE , (current_posy/ CELL_SIZE)};
+            //shortest_distance2 = bfs_shortest_distance(gameMap, start_pos, end_pos, called_pos);
+            //shortest_distance2 = bfs_encountered_positions(gameMap, start_pos, end_pos);
             cout<<"lrft"<<endl;
+
+                int startX = ghost->x / CELL_SIZE - 1;
+                int startY = ghost->y / CELL_SIZE;
+                int destX = pacman_x/CELL_SIZE;
+                int destY = pacman_y/CELL_SIZE;
+            shortest_distance2 = shortestPath(startX,startY, destX, destY, gameMap);
 
         }
         if(gameMap[current_posy / CELL_SIZE - 1  ][(current_posx) / CELL_SIZE]==0 || gameMap[current_posy / CELL_SIZE - 1  ][(current_posx) / CELL_SIZE]==2)
         {
               
-            pair<int, int> start_pos = {(current_posx / CELL_SIZE), ((current_posy )/ CELL_SIZE - 1)};
-            pair<int, int> end_pos = {pacman_x/CELL_SIZE, pacman_y/CELL_SIZE};
-            shortest_distance3 = findShortestDistance(gameMap, start_pos, end_pos);
+            //pair<int, int> start_pos = {(current_posx / CELL_SIZE), ((current_posy )/ CELL_SIZE - 1)};
+            //pair<int, int> end_pos = {pacman_x/CELL_SIZE, pacman_y/CELL_SIZE};
+            //pair<int, int> called_pos = {current_posx / CELL_SIZE , (current_posy/ CELL_SIZE)};
+            //shortest_distance3 = bfs_shortest_distance(gameMap, start_pos, end_pos,called_pos);
+            //shortest_distance3 = bfs_encountered_positions(gameMap, start_pos, end_pos);
             cout<<"up"<<endl;
+                int startX = ghost->x / CELL_SIZE ;
+                int startY = ghost->y / CELL_SIZE - 1;
+                int destX = pacman_x/CELL_SIZE;
+                int destY = pacman_y/CELL_SIZE;
+            shortest_distance3 = shortestPath(startX,startY, destX, destY, gameMap);
 
         }
         if(gameMap[current_posy / CELL_SIZE  + 1][(current_posx) / CELL_SIZE]==0 || gameMap[current_posy / CELL_SIZE  + 1][(current_posx) / CELL_SIZE]==2)
         {
-            pair<int, int> start_pos = {(current_posx / CELL_SIZE), ((current_posy)/ CELL_SIZE) + 1};
-            pair<int, int> end_pos = {pacman_x/CELL_SIZE, pacman_y/CELL_SIZE};
-             shortest_distance4 = findShortestDistance(gameMap, start_pos, end_pos);
+            //pair<int, int> start_pos = {(current_posx / CELL_SIZE), ((current_posy)/ CELL_SIZE) + 1};
+            //pair<int, int> end_pos = {pacman_x/CELL_SIZE, pacman_y/CELL_SIZE};
+            //pair<int, int> called_pos = {current_posx / CELL_SIZE , (current_posy/ CELL_SIZE)};
+
+            //shortest_distance4 = bfs_shortest_distance(gameMap, start_pos, end_pos, called_pos);
+            //shortest_distance4 = bfs_encountered_positions(gameMap, start_pos, end_pos);
             cout<<"down"<<endl;
+            int startX = ghost->x / CELL_SIZE;
+                int startY = ghost->y / CELL_SIZE + 1;
+                int destX = pacman_x/CELL_SIZE;
+                int destY = pacman_y/CELL_SIZE;
+            shortest_distance1 = shortestPath(startX,startY, destX, destY, gameMap);
 
         }
             cout<<shortest_distance1 <<" " << shortest_distance2 << " "<< shortest_distance3 << " "<< shortest_distance4 <<endl ; 
             int final = min (shortest_distance1, min(shortest_distance2 ,min(shortest_distance4 , shortest_distance3 ))); 
     
-        if (final  != 222220) {
-        cout << "Shortest distance: " << final << endl;
-    } else {
-        cout << "No path found" << endl;
-    }
+        //if (final  != 222220) {
+       // cout << "Shortest distance: " << final << endl;
+    //} else {
+    //    cout << "No path found" << endl;
+    //}
     int directionX = 0;
     int directionY = 0;
     if(final==shortest_distance1 && final!= 222220) {
@@ -453,9 +683,10 @@ void* ghostController3(void* arg) {
         ghost->direction = 2;
     }
 
-    ghost->x += directionX * CELL_SIZE;
-    ghost->y += directionY * CELL_SIZE;
-    usleep(200000); // Adjust the sleep duration as needed
+    ghost->x = ghost->x +  directionX * CELL_SIZE;
+    ghost->y = ghost->y +  directionY * CELL_SIZE;
+    //cout<<ghost->x<<" "<<ghost->y<<endl;
+    usleep(100000); // Adjust the sleep duration as needed
 
     }
     pthread_exit(NULL);
@@ -530,10 +761,29 @@ void* ghostController(void* arg) {
         
         // Check for collisions with walls
         pthread_mutex_lock(&GameBoardMutex);
-        if (nextX >= 0 && nextX < 30 * CELL_SIZE && nextY >= 0 && nextY < 30 * CELL_SIZE &&
-            (gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 0 || gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 2)) {
+        if (nextX >= 0 && nextX < 30 * CELL_SIZE && nextY >= 0 && nextY < 30 * CELL_SIZE && (gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 0 || gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 2)) {
             ghost->x += directionX * CELL_SIZE;
             ghost->y += directionY * CELL_SIZE;
+        }
+        else{
+            //move ghost in opposite direction
+            if (ghost->direction == 1) {
+                ghost->direction = 2;
+                ghost->x += directionX * CELL_SIZE;
+                ghost->y += directionY * CELL_SIZE;
+            } else if (ghost->direction == 2) {
+                ghost->direction = 1;
+                ghost->x += directionX * CELL_SIZE;
+                ghost->y += directionY * CELL_SIZE;
+            } else if (ghost->direction == 3) {
+                ghost->direction = 4;
+                ghost->x += directionX * CELL_SIZE;
+                ghost->y += directionY * CELL_SIZE;
+            } else {
+                ghost->direction = 3;
+                ghost->x += directionX * CELL_SIZE;
+                ghost->y += directionY * CELL_SIZE;
+            }
         }
         pthread_mutex_unlock(&GameBoardMutex);
 
@@ -659,7 +909,7 @@ int main() {
     srand(time(nullptr));
     // Initialize game board
     intitializeGrid();
-
+    //initializeGameBoard();
     // Create SFML window
     sf::RenderWindow window(sf::VideoMode(1000, 1000), "SFML window");
     // Create the yellow circle (player)
@@ -672,7 +922,7 @@ int main() {
     ghost_shape2.setFillColor(sf::Color::Blue);
     pacman_shape.setPosition(25/8, 25/4); // Set initial position to (100, 50)
     // set ghost position to (10, 10)
-    ghost_shape1.setPosition(35, 38);
+    ghost_shape1.setPosition(65, 38);
     ghost_shape2.setPosition(65, 38);
 
     // Create thread for user input
@@ -680,9 +930,9 @@ int main() {
     pthread_create(&userInputThread, nullptr, userInput, &window);
 
     // Initialize ghosts' data
-    GhostData ghost1 = {35, 38}; // Example initial position
-    GhostData ghost2 = {899, 38}; // Example initial position
-    ghost2.direction = 3;
+    GhostData ghost1 = {899, 38}; // Example initial position
+    GhostData ghost2 = {65, 38}; // Example initial position
+    //ghost2.direction = 3;
 
     // Initialize other ghost data as needed
 
@@ -690,8 +940,8 @@ int main() {
     pthread_t ghost1Thread;
     pthread_t ghost2Thread;
 
-    pthread_create(&ghost1Thread, nullptr, ghostController3, &ghost1);
-    //pthread_create(&ghost2Thread, nullptr, ghostController, &ghost2);
+    pthread_create(&ghost1Thread, nullptr, ghostController, &ghost1);
+    pthread_create(&ghost2Thread, nullptr, ghostController, &ghost2);
     // Main loop
     while (window.isOpen()) 
     {
@@ -712,12 +962,13 @@ int main() {
         {
             window.close();
         }
-        cout<<"pacman_x: "<<pacman_x<<" pacman_y: "<<pacman_y<<endl;
+        //cout<<"pacman_x: "<<pacman_x<<" pacman_y: "<<pacman_y<<endl;
     }
 
     // Join threads
     pthread_join(userInputThread, nullptr);
     pthread_join(ghost1Thread, nullptr);
+    pthread_join(ghost2Thread, nullptr);
     //pthread_join(moveThread, nullptr);
     // Destroy mutexes
     pthread_mutex_destroy(&SharedmemMutex);
