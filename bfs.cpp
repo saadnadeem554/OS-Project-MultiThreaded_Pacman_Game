@@ -77,12 +77,49 @@ int main() {
          {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
          {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 };
-    pair<int, int> start_pos = {1, 1};
-    pair<int, int> end_pos = {3, 28};
+    
+    int current_posx = 1;
+    int current_posy = 6;
+      int shortest_distance1=222220; 
+      int shortest_distance2=222220;
+      int shortest_distance3=222220;
+      int shortest_distance4=222220;  
+        if(grid[current_posx +1][current_posy]==0)
+        {
+            pair<int, int> start_pos = {current_posx +1, current_posy};
+            pair<int, int> end_pos = {3, 28};
+             shortest_distance1 = bfs_shortest_distance(grid, start_pos, end_pos);
+             cout<<"right"<<endl;
+        }
+        if(grid[current_posx -1][current_posy]==0)
+        {
+            pair<int, int> start_pos = {current_posx -1, current_posy};
+            pair<int, int> end_pos = {3, 28};
+             shortest_distance2 = bfs_shortest_distance(grid, start_pos, end_pos);
+                          cout<<"lrft"<<endl;
 
-    int shortest_distance = bfs_shortest_distance(grid, start_pos, end_pos);
-    if (shortest_distance != -1) {
-        cout << "Shortest distance: " << shortest_distance << endl;
+        }
+        if(grid[current_posx][current_posy + 1]==0)
+        {
+            pair<int, int> start_pos = {current_posx , current_posy+1 };
+            pair<int, int> end_pos = {3, 28};
+             shortest_distance3 = bfs_shortest_distance(grid, start_pos, end_pos);
+                          cout<<"up"<<endl;
+
+        }
+        if(grid[current_posx ][current_posy-1]==0)
+        {
+            pair<int, int> start_pos = {current_posx , current_posy-1};
+            pair<int, int> end_pos = {3, 28};
+             shortest_distance4 = bfs_shortest_distance(grid, start_pos, end_pos);
+                          cout<<"do"<<endl;
+
+        }
+            cout<<shortest_distance1 <<" " << shortest_distance2 << " "<< shortest_distance3 << " "<< shortest_distance4 <<endl ; 
+            int final = min (shortest_distance1, min(shortest_distance2 ,min(shortest_distance4 , shortest_distance3 ))); 
+    
+        if (final  != -1) {
+        cout << "Shortest distance: " << final << endl;
     } else {
         cout << "No path found" << endl;
     }
