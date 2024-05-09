@@ -821,11 +821,19 @@ int main()
     sf::CircleShape ghost_shape3(25 / 2);
     sf::CircleShape ghost_shape4(25 / 2);
 
+    sf::Texture ghost_texture1, ghost_texture2, ghost_texture3, ghost_texture4;
+    ghost_texture1.loadFromFile("GhostRed.png");
+    ghost_shape1.setTexture(&ghost_texture1);
+    ghost_texture2.loadFromFile("GhostBlue.png");
+    ghost_shape2.setTexture(&ghost_texture2);
+    ghost_texture3.loadFromFile("GhostGreen.png");
+    ghost_shape3.setTexture(&ghost_texture3);
+    ghost_texture4.loadFromFile("GhostYellow.png");
+    ghost_shape4.setTexture(&ghost_texture4);
+
+
     //pacman_shape.setFillColor(sf::Color::Yellow);
-    ghost_shape1.setFillColor(sf::Color::Red);
-    ghost_shape2.setFillColor(sf::Color::Blue);
-    ghost_shape3.setFillColor(sf::Color::Green);
-    ghost_shape4.setFillColor(sf::Color::Cyan);
+    
 
     pacman_shape.setPosition(25 / 8, 25 / 4); // Set initial position to (100, 50)
     // set ghost position to (10, 10)
@@ -870,19 +878,19 @@ int main()
 
         if(powerupActive )
         {
-             ghost_shape1.setFillColor(sf::Color::White);
-             ghost_shape2.setFillColor(sf::Color :: White);
-             ghost_shape3.setFillColor(sf::Color :: White);
-             ghost_shape4.setFillColor(sf::Color :: White);
+             ghost_shape1.setFillColor(sf::Color::Blue);
+             ghost_shape2.setFillColor(sf::Color :: Blue);
+             ghost_shape3.setFillColor(sf::Color :: Blue);
+             ghost_shape4.setFillColor(sf::Color :: Blue);
         }
         if(powerupClock.getElapsedTime().asSeconds() >=100 )
         {
             powerupActive = false ; 
         //    cout<<"Removed power up ; ";
-             ghost_shape1.setFillColor(sf::Color::Red);
-             ghost_shape2.setFillColor(sf::Color :: Blue);
-                ghost_shape3.setFillColor(sf::Color :: Green);
-                ghost_shape4.setFillColor(sf::Color :: Cyan);
+             ghost_shape1.setFillColor(sf::Color::White);
+             ghost_shape2.setFillColor(sf::Color :: White);
+                ghost_shape3.setFillColor(sf::Color :: White);
+                ghost_shape4.setFillColor(sf::Color :: White);
         }
         
         movePacman(pacman_texture);
