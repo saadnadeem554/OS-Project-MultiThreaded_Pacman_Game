@@ -96,27 +96,28 @@ sem_t speedBoostSemaphore;
 
 
 // Function to grant speed boosts to ghosts
-void grantSpeedBoost(GhostData& ghost) {
+void grantSpeedBoost(GhostData& ghost) 
+{
     // Try to acquire the speed boost semaphore
     if (sem_trywait(&speedBoostSemaphore) == 0) {
         // Speed boost granted
         ghost.speed = 1;
-        cout<<"Speed Boost granted to ghost "<< ghost.ghostID <<endl;
+        //cout<<"Speed Boost granted to ghost "<< ghost.ghostID <<endl;
          ghost.speedClock.restart();
-        usleep(100000); // Adjusted sleep duration for faster ghost
     } else {
         // No speed boosts available
         // Ghost continues with normal speed
     }
 }
 // Function to update the speed boost status of a ghost
-void updateSpeedBoost(GhostData& ghost) {
+void updateSpeedBoost(GhostData& ghost) 
+{
     // Check if the speed boost is active and has expired (5 seconds duration)
     if (ghost.speed && ghost.speedClock.getElapsedTime().asSeconds() >= 10) {
         // Speed boost has expired, release semaphore and reset speed
         sem_post(&speedBoostSemaphore);
         ghost.speed = 0;
-        cout<<"Speed Boost expired for ghost "<< ghost.ghostID <<endl;
+        //cout<<"Speed Boost expired for ghost "<< ghost.ghostID <<endl;
     }
 }
 
@@ -513,6 +514,20 @@ void *ghostController(void *arg)
         grantSpeedBoost(*ghost);
         if(ghost->speed==1)
         updateSpeedBoost(*ghost);
+
+        pthread_mutex_lock(&SharedmemMutex);
+        if(powerupActive)
+        {
+            if (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE)
+            {
+                cout<<"Ghost caught pacman"<<endl;
+                // reset ghost position
+                ghost->x= 451;
+                ghost->y= 454;
+            }
+        }
+        pthread_mutex_unlock(&SharedmemMutex);
+
         
         int directionX = 0;
         int directionY = 0;
@@ -623,6 +638,9 @@ void *ghostController(void *arg)
             //cout<<ghost->x/CELL_SIZE<<" "<< ghost->y/CELL_SIZE<<endl; 
         }
         pthread_mutex_unlock(&GameBoardMutex);
+
+
+        
 
         // if close
         if (closwindow == 1)
@@ -847,7 +865,7 @@ int main()
              ghost_shape3.setFillColor(sf::Color :: White);
              ghost_shape4.setFillColor(sf::Color :: White);
         }
-        if(powerupClock.getElapsedTime().asSeconds() >=5 )
+        if(powerupClock.getElapsedTime().asSeconds() >=100 )
         {
             powerupActive = false ; 
         //    cout<<"Removed power up ; ";
@@ -856,19 +874,7 @@ int main()
                 ghost_shape3.setFillColor(sf::Color :: Green);
                 ghost_shape4.setFillColor(sf::Color :: Cyan);
         }
-        if( powerupActive   &&  pacman_x ==  ghost1.x && pacman_y == ghost1.y)
-        {
-            ghost1.x = 65;
-            ghost1.y = 38;
-            Score = Score + 10 ;
-
-        }
-        if(powerupActive &&  pacman_x == ghost2.x &&  pacman_y == ghost2.y)
-        {
-            ghost2.x = 65;
-            ghost2.y = 38;
-            Score = Score + 10 ;
-        }
+        
         movePacman();
         window.clear();
         drawGrid(window);
