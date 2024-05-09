@@ -18,6 +18,7 @@
 #include <stack>
 #include <vector>
 #include <climits>
+#include <semaphore.h>
 using namespace std;
 using namespace sf;
 // Define game board size
@@ -43,7 +44,7 @@ int gameMapSkeleton[ROWS][COLS] = {
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, -1, -1, -1, -1, 0, 0, -1, -1, -1, -1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
@@ -77,7 +78,11 @@ struct GhostData
 {
     int x;
     int y;
+    int ghostID;
     int direction = 2;
+    int speed = 0;
+    // add a clock to keep track of time of speed
+    sf::Clock speedClock;
     // Add any other relevant data here
 };
 // Mutex to protect user input
@@ -85,6 +90,35 @@ pthread_mutex_t SharedmemMutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Mutex on gameBoard
 pthread_mutex_t GameBoardMutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Semaphore for speed boost
+sem_t speedBoostSemaphore;
+
+
+// Function to grant speed boosts to ghosts
+void grantSpeedBoost(GhostData& ghost) {
+    // Try to acquire the speed boost semaphore
+    if (sem_trywait(&speedBoostSemaphore) == 0) {
+        // Speed boost granted
+        ghost.speed = 1;
+        cout<<"Speed Boost granted to ghost "<< ghost.ghostID <<endl;
+         ghost.speedClock.restart();
+        usleep(100000); // Adjusted sleep duration for faster ghost
+    } else {
+        // No speed boosts available
+        // Ghost continues with normal speed
+    }
+}
+// Function to update the speed boost status of a ghost
+void updateSpeedBoost(GhostData& ghost) {
+    // Check if the speed boost is active and has expired (5 seconds duration)
+    if (ghost.speed && ghost.speedClock.getElapsedTime().asSeconds() >= 10) {
+        // Speed boost has expired, release semaphore and reset speed
+        sem_post(&speedBoostSemaphore);
+        ghost.speed = 0;
+        cout<<"Speed Boost expired for ghost "<< ghost.ghostID <<endl;
+    }
+}
 
 // function that puts score pallets in gamegrid
 void intitializeGrid()
@@ -474,6 +508,12 @@ void *ghostController(void *arg)
     // Ghost controller logic
     while (true)
     {
+        
+        if(ghost->speed==0)
+        grantSpeedBoost(*ghost);
+        if(ghost->speed==1)
+        updateSpeedBoost(*ghost);
+        
         int directionX = 0;
         int directionY = 0;
 
@@ -590,7 +630,10 @@ void *ghostController(void *arg)
             pthread_exit(NULL);
         }
         // Sleep for a short duration to control the speed of the ghost
+        if(ghost->speed==0)
         usleep(200000); // Adjust the sleep duration as needed
+        else
+        usleep(100000);
     }
     pthread_exit(NULL);
 }
@@ -747,32 +790,51 @@ int main()
     sf::CircleShape pacman_shape(25 / 2);
     sf::CircleShape ghost_shape1(25 / 2);
     sf::CircleShape ghost_shape2(25 / 2);
+    sf::CircleShape ghost_shape3(25 / 2);
+    sf::CircleShape ghost_shape4(25 / 2);
 
     pacman_shape.setFillColor(sf::Color::Yellow);
     ghost_shape1.setFillColor(sf::Color::Red);
     ghost_shape2.setFillColor(sf::Color::Blue);
+    ghost_shape3.setFillColor(sf::Color::Green);
+    ghost_shape4.setFillColor(sf::Color::Cyan);
+
     pacman_shape.setPosition(25 / 8, 25 / 4); // Set initial position to (100, 50)
     // set ghost position to (10, 10)
     ghost_shape1.setPosition(65, 38);
     ghost_shape2.setPosition(65, 38);
+    ghost_shape3.setPosition(65, 38);
+    ghost_shape4.setPosition(65, 38);
+
+    // Initialize semaphore for speed boost
+    sem_init(&speedBoostSemaphore, 0, 2); // Initialize with 2 speed boosts available
 
     // Create thread for user input
     pthread_t userInputThread;
     pthread_create(&userInputThread, nullptr, userInput, &window);
 
     // Initialize ghosts' data
-    GhostData ghost1 = {899, 38}; // Example initial position
-    GhostData ghost2 = {65, 38};  // Example initial position
-    // ghost2.direction = 3;
+    GhostData ghost1 = {355, 454}; // Example initial position
+    GhostData ghost2 = {387, 454};  // Example initial position
+    GhostData ghost3 = {451, 454}; // Example initial position
+    GhostData ghost4 = {483, 454};  // Example initial position
+    ghost1.ghostID = 1;
+    ghost2.ghostID = 2;
+    ghost3.ghostID = 3;
+    ghost4.ghostID = 4;
 
     // Initialize other ghost data as needed
 
     // Create threads for ghost controllers
     pthread_t ghost1Thread;
     pthread_t ghost2Thread;
+    pthread_t ghost3Thread;
+    pthread_t ghost4Thread;
 
     pthread_create(&ghost1Thread, nullptr, ghostController, &ghost1);
     pthread_create(&ghost2Thread, nullptr, ghostController, &ghost2);
+    pthread_create(&ghost3Thread, nullptr, ghostController, &ghost3);
+    pthread_create(&ghost4Thread, nullptr, ghostController, &ghost4);
     // Main loop
     while (window.isOpen())
     {
@@ -782,13 +844,17 @@ int main()
         {
              ghost_shape1.setFillColor(sf::Color::White);
              ghost_shape2.setFillColor(sf::Color :: White);
+             ghost_shape3.setFillColor(sf::Color :: White);
+             ghost_shape4.setFillColor(sf::Color :: White);
         }
         if(powerupClock.getElapsedTime().asSeconds() >=5 )
         {
             powerupActive = false ; 
         //    cout<<"Removed power up ; ";
-            ghost_shape1.setFillColor(sf::Color::Red);
+             ghost_shape1.setFillColor(sf::Color::Red);
              ghost_shape2.setFillColor(sf::Color :: Blue);
+                ghost_shape3.setFillColor(sf::Color :: Green);
+                ghost_shape4.setFillColor(sf::Color :: Cyan);
         }
         if( powerupActive   &&  pacman_x ==  ghost1.x && pacman_y == ghost1.y)
         {
@@ -811,26 +877,33 @@ int main()
         pacman_shape.setPosition(pacman_x, pacman_y); // Update pacman position
         ghost_shape1.setPosition(ghost1.x, ghost1.y); // Update ghost position
         ghost_shape2.setPosition(ghost2.x, ghost2.y); // Update ghost position
+        ghost_shape3.setPosition(ghost3.x, ghost3.y); // Update ghost position
+        ghost_shape4.setPosition(ghost4.x, ghost4.y); // Update ghost position
         window.draw(pacman_shape);                    // Draw the player (yellow circle)
         window.draw(ghost_shape1);                    // Draw the ghost (red circle)
         window.draw(ghost_shape2);
+        window.draw(ghost_shape3);
+        window.draw(ghost_shape4);
         window.display();
         usleep(150000); // Sleep for 0.3 seconds
         if (closwindow == 1)
         {
             window.close();
         }
-        // cout<<"pacman_x: "<<pacman_x<<" pacman_y: "<<pacman_y<<endl;
+         //cout<<"pacman_x: "<<pacman_x<<" pacman_y: "<<pacman_y<<endl;
     }
 
     // Join threads
     pthread_join(userInputThread, nullptr);
     pthread_join(ghost1Thread, nullptr);
     pthread_join(ghost2Thread, nullptr);
-    // pthread_join(moveThread, nullptr);
-    //  Destroy mutexes
+    pthread_join(ghost3Thread, nullptr);
+    pthread_join(ghost4Thread, nullptr);
+    // Destroy mutexes
     pthread_mutex_destroy(&SharedmemMutex);
-    // pthread_mutex_destroy(&pacmanMutex);
+    pthread_mutex_destroy(&GameBoardMutex);
+    // Destroy semaphore
+    sem_destroy(&speedBoostSemaphore);
 
     return 0;
 }
