@@ -488,7 +488,7 @@ void *ghostController(void *arg)
                         chosen = true;
                         ghost->direction = 4;
                     }
-                    else if (valid((ghost->x - CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE) && rand() % 2 == 1)
+                    else if (valid((ghost->x - CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE) && rand() % 2 == 0)
                     {
 
                         directionX = -1;
@@ -503,15 +503,15 @@ void *ghostController(void *arg)
                 {   
                     directionY = 1;
                     chosen = true;
-                    ghost->direction = 1;                       
+                    ghost->direction = 2;                       
                 }
         
-                else if (valid(ghost->x / CELL_SIZE, (ghost->y - CELL_SIZE) / CELL_SIZE)&& rand() % 2 ==1)
+                else if (valid(ghost->x / CELL_SIZE, (ghost->y - CELL_SIZE) / CELL_SIZE)&& rand() % 2 ==0)
                 {
 
                     directionY = -1;
                     chosen = true;
-                    ghost->direction = 2;   
+                    ghost->direction = 1;   
                 }     
             }
         pthread_mutex_unlock(&GameBoardMutex);
