@@ -80,135 +80,6 @@ struct GhostData
     int direction = 2;
     // Add any other relevant data here
 };
-
-// Define a structure to represent a cell in the grid
-struct Cell
-{
-    int x, y;
-    int distance;
-    bool operator<(const Cell &other) const
-    {
-        return distance > other.distance; // For min-heap
-    }
-};
-
-// Define helper function to calculate Manhattan distance
-int manhattanDistance(int x1, int y1, int x2, int y2)
-{
-    return abs(x1 - x2) + abs(y1 - y2);
-}
-
-// Dijkstra's algorithm function
-int **dijkstra(int srcX, int srcY, int destX, int destY, const int gameMap[ROWS][COLS])
-{
-    // Initialize distances to infinity
-    int **dist = new int *[ROWS];
-    for (int i = 0; i < ROWS; ++i)
-    {
-        dist[i] = new int[COLS];
-        for (int j = 0; j < COLS; ++j)
-        {
-            dist[i][j] = INT_MAX;
-        }
-    }
-
-    // Initialize priority queue
-    priority_queue<Cell> pq;
-
-    // Push source cell into priority queue
-    pq.push({srcX, srcY, 0});
-    dist[srcX][srcY] = 0;
-
-    // Define possible movements
-    int dx[] = {0, 0, -1, 1}; // Up, down, left, right
-    int dy[] = {-1, 1, 0, 0};
-
-    while (!pq.empty())
-    {
-        Cell curr = pq.top();
-        pq.pop();
-
-        if (curr.x == destX && curr.y == destY)
-        {
-            // Found destination, stop search
-            break;
-        }
-
-        // Explore neighbors
-        for (int i = 0; i < 4; ++i)
-        {
-            int newX = curr.x + dx[i];
-            int newY = curr.y + dy[i];
-
-            if (newX >= 0 && newX < ROWS && newY >= 0 && newY < COLS && gameMap[newY / CELL_SIZE][newX / CELL_SIZE] != 1 && dist[newX][newY] > curr.distance + 1)
-            {
-                dist[newX][newY] = curr.distance + 1;
-                pq.push({newX, newY, curr.distance + 1});
-            }
-        }
-    }
-
-    return dist;
-}
-
-void moveGhost(GhostData &ghost)
-{
-    // Use Dijkstra's algorithm to find the shortest path to pacman
-    int **shortestPath = dijkstra(ghost.x, ghost.y, pacman_x, pacman_y, gameMap);
-
-    // Get the next cell in the shortest path
-    int nextX = pacman_x;
-    int nextY = pacman_y;
-
-    // Update ghost direction based on the next cell
-    if (nextX < ghost.x)
-    {
-        ghost.direction = 3; // Left
-    }
-    else if (nextX > ghost.x)
-    {
-        ghost.direction = 4; // Right
-    }
-    else if (nextY < ghost.y)
-    {
-        ghost.direction = 1; // Up
-    }
-    else if (nextY > ghost.y)
-    {
-        ghost.direction = 2; // Down
-    }
-
-    // Move the ghost to the next cell
-    ghost.x = nextX;
-    ghost.y = nextY;
-
-    // Free memory allocated for the shortest path
-    for (int i = 0; i < ROWS; ++i)
-    {
-        delete[] shortestPath[i];
-    }
-    delete[] shortestPath;
-}
-
-// Ghost controller function
-void *ghostController2(void *arg)
-{
-    // Unpack arguments
-    GhostData *ghost = (GhostData *)arg;
-
-    // Ghost controller logic
-    while (true)
-    {
-        // Move ghost
-        moveGhost(*ghost);
-
-        // Sleep for a short duration to control the speed of the ghost
-        usleep(200000); // Adjust the sleep duration as needed
-    }
-
-    pthread_exit(NULL);
-}
-
 // Mutex to protect user input
 pthread_mutex_t SharedmemMutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -240,109 +111,6 @@ void intitializeGrid()
             }
             else
                 gameMap[i][j] = gameMapSkeleton[i][j];
-        }
-    }
-}
-
-// Function to initialize the game board with values
-void initializeGameBoard()
-{
-    for (int i = 0; i < ROWS; i++)
-    {
-        for (int j = 0; j < COLS; j++)
-        {
-            if ((i == 0 || j == 0) || (i == ROWS - 1 || j == COLS - 1))
-            {
-                // Fixed walls
-                gameMap[i][j] = -2;
-            }
-            // Ghost house
-            else if ((i == 10 && j >= 10) && (i == 10 && j <= 14))
-            {
-                if (i != 10 || j != 12)
-                    gameMap[i][j] = -1;
-            }
-            else if ((i == 14 && j >= 10) && (i == 14 && j <= 14))
-            {
-                gameMap[i][j] = -1;
-            }
-            else if ((j == 10 && i >= 10) && (j == 10 && i <= 14))
-            {
-                gameMap[i][j] = -1;
-            }
-            else if ((j == 14 && i >= 10) && (j == 14 && i <= 14))
-            {
-                gameMap[i][j] = -1;
-            }
-            // Openings
-            else if (i == 12 || j == 12)
-            {
-                gameMap[i][j] = 0;
-            }
-            // Small square
-            else if ((i == 6 && j >= 6) && (i == 6 && j <= 18))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((i == 18 && j >= 6) && (i == 18 && j <= 18))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((j == 6 && i >= 6) && (j == 6 && i <= 18))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((j == 18 && i >= 6) && (j == 18 && i <= 18))
-            {
-                gameMap[i][j] = 1;
-            }
-            // Bigger square
-            else if ((i == 4 && j >= 4) && (i == 4 && j <= 20))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((i == 20 && j >= 4) && (i == 20 && j <= 20))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((j == 4 && i >= 4) && (j == 4 && i <= 20))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((j == 20 && i >= 4) && (j == 20 && i <= 20))
-            {
-                gameMap[i][j] = 1;
-            }
-            // Bigger square
-            else if ((i == 2 && j >= 2) && (i == 2 && j <= 22))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((i == 22 && j >= 2) && (i == 22 && j <= 22))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((j == 2 && i >= 2) && (j == 2 && i <= 22))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((j == 22 && i >= 2) && (j == 22 && i <= 22))
-            {
-                gameMap[i][j] = 1;
-            }
-            else
-            {
-                // Randomly place pellets and power-ups
-                int randNum = rand() % 5; // Generate random number from 0 to 4
-                if (randNum == 2)
-                {
-                    gameMap[i][j] = 2 + rand() % 3; // Randomly assign power-up value (2, 3, or 4)
-                }
-                else
-                {
-                    gameMap[i][j] = 0;
-                }
-            }
         }
     }
 }
@@ -407,51 +175,7 @@ void drawGrid(sf::RenderWindow &window)
         }
     }
 }
-
-struct Node
-{
-    pair<int, int> pos;
-    int g_score;
-    int h_score;
-    Node *parent;
-
-    Node(pair<int, int> pos, int g_score, int h_score, Node *parent) : pos(pos), g_score(g_score), h_score(h_score), parent(parent) {}
-
-    int f_score() const
-    {
-        return g_score + h_score;
-    }
-};
-
-int manhattan_distance(pair<int, int> a, pair<int, int> b)
-{
-    return abs(a.first - b.first) + abs(a.second - b.second);
-}
-
-bool isValid(int row, int col, int grid[][30])
-{
-    return (row >= 0 && col >= 0 && (grid[row][col] == 2 || grid[row][col] == 0));
-}
-
-vector<pair<int, int>> getNeighbors(pair<int, int> pos, int rows, int cols)
-{
-    vector<pair<int, int>> neighbors;
-    int dr[] = {-1, 1, 0, 0};
-    int dc[] = {0, 0, -1, 1};
-
-    for (int i = 0; i < 4; ++i)
-    {
-        int new_row = pos.first + dr[i];
-        int new_col = pos.second + dc[i];
-        if (new_row >= 0 && new_row < rows && new_col >= 0 && new_col < cols)
-        {
-            neighbors.push_back({new_row, new_col});
-        }
-    }
-
-    return neighbors;
-}
-
+/*
 int bfs_shortest_distance(int grid[][30], pair<int, int> start_pos, pair<int, int> end_pos, pair<int, int> called_pos)
 {
     int rows = 30;
@@ -732,7 +456,15 @@ void *ghostController3(void *arg)
     }
     pthread_exit(NULL);
 }
-
+*/
+bool valid(int x, int y)
+{
+    if (x < 0 || x >= 30 || y < 0 || y >= 30)
+        return false;
+    if (gameMap[y][x] == 1 || gameMap[y][x] == -1)
+        return false;
+    return true;
+}
 // User
 void *ghostController(void *arg)
 {
@@ -747,80 +479,52 @@ void *ghostController(void *arg)
 
         bool chosen = false;
         pthread_mutex_lock(&GameBoardMutex);
-       
-        
-        
-
             if (ghost->direction == 1 || ghost->direction == 2)
             { // Up or down
-                if (rand() % 2 == 0)
-                { // Randomly choose left or right
-                    if (gameMap[ghost->y / CELL_SIZE][(ghost->x + CELL_SIZE) / CELL_SIZE] != 1 &&
-                        gameMap[ghost->y / CELL_SIZE][(ghost->x + CELL_SIZE) / CELL_SIZE] != -1 &&
-                        gameMap[ghost->y / CELL_SIZE][(ghost->x + CELL_SIZE) / CELL_SIZE] != -2)
+                // Randomly choose left or right
+                    if (valid((ghost->x + CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE) && rand() % 2 == 0)
                     {
-
-
                         directionX = 1;
                         chosen = true;
                         ghost->direction = 4;
                     }
-                }
-                else
-                {
-                    if (gameMap[ghost->y / CELL_SIZE][(ghost->x - CELL_SIZE) / CELL_SIZE] != 1 &&
-                        gameMap[ghost->y / CELL_SIZE][(ghost->x - CELL_SIZE) / CELL_SIZE] != -1 &&
-                        gameMap[ghost->y / CELL_SIZE][(ghost->x - CELL_SIZE) / CELL_SIZE] != -2)
+                    else if (valid((ghost->x - CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE) && rand() % 2 == 1)
                     {
 
                         directionX = -1;
                         chosen = true;
                         ghost->direction = 3;
                     }
-                }
             }
             else if (ghost->direction == 3 || ghost->direction == 4)
             { // Left or right
-                if (rand() % 2 == 0)
-                { // Randomly choose up or down
-                    if (gameMap[(ghost->y + CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != 1 &&
-                        gameMap[(ghost->y + CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -1 &&
-                        gameMap[(ghost->y + CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -2)
-                    {   
-
-                        directionY = 1;
-                        chosen = true;
-                        ghost->direction = 1;
-                       
-                    }
+            // Randomly choose up or down
+                if (valid(ghost->x / CELL_SIZE, (ghost->y + CELL_SIZE) / CELL_SIZE) && rand() % 2 ==0)
+                {   
+                    directionY = 1;
+                    chosen = true;
+                    ghost->direction = 1;                       
                 }
-                else
-                {
-                    if (gameMap[(ghost->y - CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != 1 &&
-                        gameMap[(ghost->y - CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -1 &&
-                        gameMap[(ghost->y - CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -2)
-                    {
-
-                        directionY = -1;
-                        chosen = true;
-                        ghost->direction = 2;
-                        
-                    }
-                }
-            }
         
+                else if (valid(ghost->x / CELL_SIZE, (ghost->y - CELL_SIZE) / CELL_SIZE)&& rand() % 2 ==1)
+                {
 
+                    directionY = -1;
+                    chosen = true;
+                    ghost->direction = 2;   
+                }     
+            }
         pthread_mutex_unlock(&GameBoardMutex);
         if (!chosen)
         {
             // Continue in current direction
             if (ghost->direction == 1)
             {
-                directionY = 1;
+                directionY = -1;
             }
             else if (ghost->direction == 2)
             {
-                directionY = -1;
+                directionY = 1;
             }
             else if (ghost->direction == 3)
             {
@@ -837,17 +541,16 @@ void *ghostController(void *arg)
 
         // Check for collisions with walls
         pthread_mutex_lock(&GameBoardMutex);
-        if (nextX > 0 && nextX < 30 * CELL_SIZE && nextY > 0 && nextY < 30 * CELL_SIZE && (gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 0 || gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 2))
+        if (valid(nextX / CELL_SIZE, nextY / CELL_SIZE))
         {
             ghost->x += directionX * CELL_SIZE;
             ghost->y += directionY * CELL_SIZE;
-                        cout<<ghost->x/CELL_SIZE<<" "<< ghost->y/CELL_SIZE<<endl; 
-
+            //cout<<ghost->x/CELL_SIZE<<" "<< ghost->y/CELL_SIZE<<endl; 
         }
         else
         {
             // move ghost in opposite direction
-            cout<<"walled";
+            //cout<<"walled";
             if (ghost->direction == 1)
             {
                 ghost->direction = 2;
@@ -859,7 +562,6 @@ void *ghostController(void *arg)
             {
                 ghost->direction = 1;
                 directionY =-1 ; 
-
                 ghost->x += directionX * CELL_SIZE;
                 ghost->y += directionY * CELL_SIZE;
             }
