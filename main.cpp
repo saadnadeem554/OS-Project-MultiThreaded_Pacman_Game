@@ -27,6 +27,7 @@ using namespace sf;
 
 int pacman_x = CELL_SIZE + 25 / 8;
 int pacman_y = CELL_SIZE + 25 / 4;
+sf::Clock powerupClock ; 
 
 int gameMapSkeleton[ROWS][COLS] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -746,19 +747,9 @@ void *ghostController(void *arg)
 
         bool chosen = false;
         pthread_mutex_lock(&GameBoardMutex);
-        if (powerupActive)
-        {
-                // Calculate direction to Pacman
-            int directionToPacmanX = pacman_x - ghost->x;
-            int directionToPacmanY = pacman_y - ghost->y;
-
-         
-            // Move in the opposite direction of Pacman
-            
-        }
-
-        //else 
-        {
+       
+        
+        
 
             if (ghost->direction == 1 || ghost->direction == 2)
             { // Up or down
@@ -768,6 +759,8 @@ void *ghostController(void *arg)
                         gameMap[ghost->y / CELL_SIZE][(ghost->x + CELL_SIZE) / CELL_SIZE] != -1 &&
                         gameMap[ghost->y / CELL_SIZE][(ghost->x + CELL_SIZE) / CELL_SIZE] != -2)
                     {
+
+
                         directionX = 1;
                         chosen = true;
                         ghost->direction = 4;
@@ -779,6 +772,7 @@ void *ghostController(void *arg)
                         gameMap[ghost->y / CELL_SIZE][(ghost->x - CELL_SIZE) / CELL_SIZE] != -1 &&
                         gameMap[ghost->y / CELL_SIZE][(ghost->x - CELL_SIZE) / CELL_SIZE] != -2)
                     {
+
                         directionX = -1;
                         chosen = true;
                         ghost->direction = 3;
@@ -792,10 +786,12 @@ void *ghostController(void *arg)
                     if (gameMap[(ghost->y + CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != 1 &&
                         gameMap[(ghost->y + CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -1 &&
                         gameMap[(ghost->y + CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -2)
-                    {
+                    {   
+
                         directionY = 1;
                         chosen = true;
                         ghost->direction = 1;
+                       
                     }
                 }
                 else
@@ -804,13 +800,15 @@ void *ghostController(void *arg)
                         gameMap[(ghost->y - CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -1 &&
                         gameMap[(ghost->y - CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -2)
                     {
+
                         directionY = -1;
                         chosen = true;
                         ghost->direction = 2;
+                        
                     }
                 }
             }
-        }
+        
 
         pthread_mutex_unlock(&GameBoardMutex);
         if (!chosen)
@@ -839,38 +837,48 @@ void *ghostController(void *arg)
 
         // Check for collisions with walls
         pthread_mutex_lock(&GameBoardMutex);
-        if (nextX >= 0 && nextX < 30 * CELL_SIZE && nextY >= 0 && nextY < 30 * CELL_SIZE && (gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 0 || gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 2))
+        if (nextX > 0 && nextX < 30 * CELL_SIZE && nextY > 0 && nextY < 30 * CELL_SIZE && (gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 0 || gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 2))
         {
             ghost->x += directionX * CELL_SIZE;
             ghost->y += directionY * CELL_SIZE;
+                        cout<<ghost->x/CELL_SIZE<<" "<< ghost->y/CELL_SIZE<<endl; 
+
         }
         else
         {
             // move ghost in opposite direction
+            cout<<"walled";
             if (ghost->direction == 1)
             {
                 ghost->direction = 2;
+                directionY = 1 ; 
                 ghost->x += directionX * CELL_SIZE;
                 ghost->y += directionY * CELL_SIZE;
             }
             else if (ghost->direction == 2)
             {
                 ghost->direction = 1;
+                directionY =-1 ; 
+
                 ghost->x += directionX * CELL_SIZE;
                 ghost->y += directionY * CELL_SIZE;
             }
             else if (ghost->direction == 3)
             {
                 ghost->direction = 4;
+                directionX = 1 ; 
                 ghost->x += directionX * CELL_SIZE;
                 ghost->y += directionY * CELL_SIZE;
             }
             else
             {
                 ghost->direction = 3;
+                directionX = -1 ; 
                 ghost->x += directionX * CELL_SIZE;
                 ghost->y += directionY * CELL_SIZE;
             }
+            //sleep(1);
+            //cout<<ghost->x/CELL_SIZE<<" "<< ghost->y/CELL_SIZE<<endl; 
         }
         pthread_mutex_unlock(&GameBoardMutex);
 
@@ -986,13 +994,14 @@ void movePacman()
         Score++;
         // cout<<Score<<endl;
     }
-    if (abs(gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 4))
+    if (abs(gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 4) &&  powerupActive == false)
     {
         gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] = 0;
         powerupActive = true;
         if (powerupActive)
            {
             cout << "Eaten power up ";
+            powerupClock.restart();
             // make a new thread and let it sleep for 5 sec , then change the flag 
 
            }
@@ -1062,6 +1071,19 @@ int main()
     while (window.isOpen())
     {
         // Clear, draw, and display
+
+        if(powerupActive )
+        {
+             ghost_shape1.setFillColor(sf::Color::White);
+             ghost_shape2.setFillColor(sf::Color :: White);
+        }
+        if(powerupClock.getElapsedTime().asSeconds() >=5 )
+        {
+            powerupActive = false ; 
+        //    cout<<"Removed power up ; ";
+            ghost_shape1.setFillColor(sf::Color::Red);
+             ghost_shape2.setFillColor(sf::Color :: Blue);
+        }
         movePacman();
         window.clear();
         drawGrid(window);
