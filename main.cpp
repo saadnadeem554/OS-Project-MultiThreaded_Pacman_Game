@@ -1010,6 +1010,10 @@ void movePacman()
 
         // maybe start a new thread for 5 seconds and then change the flag back to false ;
     }
+    
+    
+
+
     pthread_mutex_unlock(&GameBoardMutex);
 }
 
@@ -1083,6 +1087,19 @@ int main()
         //    cout<<"Removed power up ; ";
             ghost_shape1.setFillColor(sf::Color::Red);
              ghost_shape2.setFillColor(sf::Color :: Blue);
+        }
+        if( powerupActive   &&  pacman_x ==  ghost1.x && pacman_y == ghost1.y)
+        {
+            ghost1.x = 65;
+            ghost1.y = 38;
+            Score = Score + 10 ;
+
+        }
+        if(powerupActive &&  pacman_x == ghost2.x &&  pacman_y == ghost2.y)
+        {
+            ghost2.x = 65;
+            ghost2.y = 38;
+            Score = Score + 10 ;
         }
         movePacman();
         window.clear();
