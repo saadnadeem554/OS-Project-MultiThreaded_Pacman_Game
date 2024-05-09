@@ -702,7 +702,8 @@ void *userInput(void *arg)
     }
     pthread_exit(NULL);
 }
-void movePacman()
+
+void movePacman(sf::Texture &pacman_texture)
 {
     int pacman_direction_x = 0;
     int pacman_direction_y = 0;
@@ -716,18 +717,23 @@ void movePacman()
     case 1: // Up
         pacman_direction_x = 0;
         pacman_direction_y = -1;
+        pacman_texture.loadFromFile("pacmanUp.png");
         break;
     case 2: // Down
         pacman_direction_x = 0;
         pacman_direction_y = 1;
+        pacman_texture.loadFromFile("pacmanDown.png");
         break;
     case 3: // Left
         pacman_direction_x = -1;
         pacman_direction_y = 0;
+        pacman_texture.loadFromFile("pacmanLeft.png");
         break;
     case 4: // Right
         pacman_direction_x = 1;
         pacman_direction_y = 0;
+        // Load pacman image
+        pacman_texture.loadFromFile("pacmanRight.png");
         break;
     default:
         break;
@@ -806,12 +812,16 @@ int main()
     sf::RenderWindow window(sf::VideoMode(1000, 1000), "SFML window");
     // Create the yellow circle (player)
     sf::CircleShape pacman_shape(25 / 2);
+    // load pacman image
+    sf::Texture pacman_texture;
+    pacman_texture.loadFromFile("pacmanRight.png");
+    pacman_shape.setTexture(&pacman_texture);
     sf::CircleShape ghost_shape1(25 / 2);
     sf::CircleShape ghost_shape2(25 / 2);
     sf::CircleShape ghost_shape3(25 / 2);
     sf::CircleShape ghost_shape4(25 / 2);
 
-    pacman_shape.setFillColor(sf::Color::Yellow);
+    //pacman_shape.setFillColor(sf::Color::Yellow);
     ghost_shape1.setFillColor(sf::Color::Red);
     ghost_shape2.setFillColor(sf::Color::Blue);
     ghost_shape3.setFillColor(sf::Color::Green);
@@ -875,7 +885,7 @@ int main()
                 ghost_shape4.setFillColor(sf::Color :: Cyan);
         }
         
-        movePacman();
+        movePacman(pacman_texture);
         window.clear();
         drawGrid(window);
 
