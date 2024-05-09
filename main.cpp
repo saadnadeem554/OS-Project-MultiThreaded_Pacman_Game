@@ -84,6 +84,9 @@ struct GhostData
     // add a clock to keep track of time of speed
     sf::Clock speedClock;
     // Add any other relevant data here
+    bool hasKey=0;
+    bool hasPermit=0;
+    bool isActivated=0;
 };
 // Mutex to protect user input
 pthread_mutex_t SharedmemMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -500,16 +503,120 @@ bool valid(int x, int y)
         return false;
     return true;
 }
-// User
+sem_t keySemaphore;
+sem_t permitSemaphore;
+void leaveGhostHouse(GhostData* ghost) 
+{
+    // Attempt to acquire a key
+    if(sem_trywait(&keySemaphore)==0)
+    {
+        ghost->hasKey = true;
+        cout << "Ghost " << ghost->ghostID << " got a key." << endl;
+        if(sem_trywait(&permitSemaphore)==0)
+        {
+            ghost->hasPermit = true;
+            cout << "Ghost " << ghost->ghostID << " got an exit permit amd key." << endl;
+            cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
+            ghost->isActivated = true;
+            // release the semaphores
+            sem_post(&permitSemaphore);
+            sem_post(&keySemaphore);
+            return;
+        }
+
+    }
+    else
+    {
+        cout << "Ghost " << ghost->ghostID << " got a key. BUT NO EXIT" << endl;
+
+        // release the key semaphore
+        sem_post(&keySemaphore);
+        return;
+    }
+    
+
+    // Attempt to acquire an exit permit
+    if(sem_trywait(&permitSemaphore)==0)
+    {
+        ghost->hasPermit = true;
+        cout << "Ghost " << ghost->ghostID << " got an exit permit." << endl;
+        if(sem_trywait(&keySemaphore)==0)
+        {
+            ghost->hasKey = true;
+            cout << "Ghost " << ghost->ghostID << " got a key amd exit." << endl;
+            cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
+            ghost->isActivated = true;
+            // release the semaphores
+            sem_post(&permitSemaphore);
+            sem_post(&keySemaphore);
+            return;
+        }
+    }
+    else
+    {
+        cout << "Ghost " << ghost->ghostID << " got an exit permit. BUT NO KEY" << endl;
+
+        // release the permit semaphore
+        sem_post(&permitSemaphore);
+        return;
+    }
+
+    // Ghost leaves the ghost house
+    //usleep(100000); // Simulate leaving the house
+    /*
+    cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
+    ghost->isActivated = true;
+
+    // Release resources
+    ghost->hasKey = false;
+    ghost->hasPermit = false;
+    sem_post(&keySemaphore);
+    sem_post(&permitSemaphore);
+    */
+}
+void leaveGhostHousee(GhostData* ghost) {
+    // Attempt to acquire a key
+    sem_wait(&keySemaphore);
+    ghost->hasKey = true;
+    cout << "Ghost " << ghost->ghostID << " got a key." << endl;
+    sem_post(&keySemaphore);
+
+    // Attempt to acquire an exit permit
+    sem_wait(&permitSemaphore);
+    ghost->hasPermit = true;
+    cout << "Ghost " << ghost->ghostID << " got an exit permit and key." << endl;
+    sem_post(&permitSemaphore);
+
+    // Ghost leaves the ghost house
+    usleep(100000); // Simulate leaving the house
+    cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
+    ghost->isActivated = true;
+    // Release resources
+    ghost->hasKey = false;
+    ghost->hasPermit = false;
+}
+
+bool start = false;
 void *ghostController(void *arg)
 {
     // Unpack arguments
     GhostData *ghost = (GhostData *)arg;
-
+    // Wait for all ghosts threads to be initialized
+    while(!start);
     // Ghost controller logic
     while (true)
     {
-        
+        if(ghost->isActivated==0)
+        {
+            usleep(3000000);
+            leaveGhostHouse(ghost);
+            if(ghost->isActivated==0)
+            {
+                // Ghost is still in the ghost house sleep for 3 seconds
+                cout<<ghost->ghostID<<" "<<endl<<endl;
+                usleep(3000000);
+            }
+        }
         if(ghost->speed==0)
         grantSpeedBoost(*ghost);
         if(ghost->speed==1)
@@ -852,6 +959,10 @@ int main()
     // Initialize semaphore for speed boost
     sem_init(&speedBoostSemaphore, 0, 2); // Initialize with 2 speed boosts available
 
+    // Initialize semaphores
+    sem_init(&keySemaphore, 0, 2);
+    sem_init(&permitSemaphore, 0, 2);
+
     // Create thread for user input
     pthread_t userInputThread;
     pthread_create(&userInputThread, nullptr, userInput, &window);
@@ -878,6 +989,7 @@ int main()
     pthread_create(&ghost2Thread, nullptr, ghostController, &ghost2);
     pthread_create(&ghost3Thread, nullptr, ghostController, &ghost3);
     pthread_create(&ghost4Thread, nullptr, ghostController, &ghost4);
+    start = true;
     // Main loop
     while (window.isOpen())
     {
@@ -936,6 +1048,8 @@ int main()
     pthread_mutex_destroy(&GameBoardMutex);
     // Destroy semaphore
     sem_destroy(&speedBoostSemaphore);
+    sem_destroy(&keySemaphore);
+    sem_destroy(&permitSemaphore);
 
     return 0;
 }
