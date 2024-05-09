@@ -187,7 +187,7 @@ void drawGrid(sf::RenderWindow &window)
                 // Draw blue rectangle for wall
 
                 // Set fill color of wallShape to dark blue
-                wallShape.setFillColor(darkBlue);
+                wallShape.setFillColor(sf::Color::Black);
                 wallShape.setPosition(j * CELL_SIZE, i * CELL_SIZE);
                 window.draw(wallShape);
                 break;
@@ -810,6 +810,13 @@ int main()
     // initializeGameBoard();
     //  Create SFML window
     sf::RenderWindow window(sf::VideoMode(1000, 1000), "SFML window");
+    // background image
+    sf::Texture background_texture;
+    background_texture.loadFromFile("background.png");
+    sf::Sprite background(background_texture);
+
+
+
     // Create the yellow circle (player)
     sf::CircleShape pacman_shape(25 / 2);
     // load pacman image
@@ -878,7 +885,7 @@ int main()
 
         if(powerupActive )
         {
-             ghost_shape1.setFillColor(sf::Color::Blue);
+             ghost_shape1.setFillColor(sf::Color::  Blue);
              ghost_shape2.setFillColor(sf::Color :: Blue);
              ghost_shape3.setFillColor(sf::Color :: Blue);
              ghost_shape4.setFillColor(sf::Color :: Blue);
@@ -895,6 +902,7 @@ int main()
         
         movePacman(pacman_texture);
         window.clear();
+        window.draw(background);
         drawGrid(window);
 
         // moveGhost(ghost1);
