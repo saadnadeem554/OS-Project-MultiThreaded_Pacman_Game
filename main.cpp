@@ -184,7 +184,7 @@ void intitializeGrid()
         }
     }
 }
-
+int life = 3;
 // Function to draw the grid with appropriate shapes for pellets, power-ups, and walls
 void drawGrid(sf::RenderWindow &window)
 {
@@ -194,13 +194,20 @@ void drawGrid(sf::RenderWindow &window)
     sf::Color darkBlue(0, 0, 139);
     sf::Text scoreText;
     sf::Font font;
+    sf::Text lifetext;
     font.loadFromFile("SIXTY.TTF");
     scoreText.setFont(font);
+    lifetext.setFont(font);
     scoreText.setCharacterSize(24);
+    lifetext.setCharacterSize(24);
     scoreText.setFillColor(sf::Color::White);
+    lifetext.setFillColor(sf::Color::White);
     scoreText.setPosition(CELL_SIZE * 10, CELL_SIZE * 30);
+    lifetext.setPosition(CELL_SIZE * 20, CELL_SIZE * 30);
     scoreText.setString("Score: " + std::to_string(Score));
+    lifetext.setString("Lives: " + std::to_string(life));
     window.draw(scoreText);
+    window.draw(lifetext);
 
     for (int i = 0; i < ROWS; i++)
     {
@@ -629,15 +636,68 @@ void leaveGhostHousee(GhostData* ghost) {
 }
 
 bool start = false;
+bool reset = false;
+
+void resetGame(GhostData& ghost1, GhostData& ghost2, GhostData& ghost3, GhostData& ghost4)
+{
+    // Reset the game
+   // intitializeGrid();
+    // Reset the ghosts
+    ghost1.x = 355;
+    ghost1.y = 454;
+    ghost1.isActivated = 0;
+    ghost1.speed = 0;
+    ghost2.x = 387;
+    ghost2.y = 454;
+    ghost2.isActivated = 0;
+    ghost2.speed = 0;
+    ghost3.x = 451;
+    ghost3.y = 454;
+    ghost3.isActivated = 0;
+    ghost3.speed = 0;
+    ghost4.x = 483;
+    ghost4.y = 454;
+    ghost4.isActivated = 0;
+    ghost4.speed = 0;
+    ghost1.speedClock.restart();
+    ghost2.speedClock.restart();
+    ghost3.speedClock.restart();
+    ghost4.speedClock.restart();
+    // Reset the pacman
+    pthread_mutex_lock(&PacmanPosMutex);
+    pacman_x = CELL_SIZE + 25 / 8;
+    pacman_y = CELL_SIZE + 25 / 4;
+    pthread_mutex_unlock(&PacmanPosMutex);
+    pthread_mutex_lock(&SharedmemMutex);
+    sharedmem.pacman_direction = 0;
+    pthread_mutex_unlock(&SharedmemMutex);
+    //Score = 0;
+    // Reset the powerup
+    powerupActive = false;
+    // Reset the speed boost
+    sem_init(&speedBoostSemaphore, 0, 1);
+    sem_init(&keySemaphore, 0, 1);
+    sem_init(&permitSemaphore, 0, 1);
+    // Reset the ghost list
+    ghostlist.clear();
+    ghostlist.push_back(&ghost2);
+    ghostlist.push_back(&ghost3);
+    // Reset the reset flag
+    reset = false;
+    cout<<"GAME RESET";
+    start = 1;
+}
+
 void *ghostController(void *arg)
 {
     // Unpack arguments
     GhostData *ghost = (GhostData *)arg;
     // Wait for all ghosts threads to be initialized
-    while(!start);
     // Ghost controller logic
     while (true)
     {
+        while(!start);
+        
         if(ghost->isActivated==0)
         {
             usleep(3000000);
@@ -649,6 +709,8 @@ void *ghostController(void *arg)
                 usleep(3000000);
             }
         }
+        // check pacman collision
+
         
         /*if(ghost->speed==0)
         grantSpeedBoost(*ghost);
@@ -679,9 +741,7 @@ void *ghostController(void *arg)
 
        
         pthread_mutex_lock(&PacmanPosMutex);
-        if(powerupActive)
-        {
-            if (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE)
+            if (powerupActive && (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE))
             {
                 //cout<<"Ghost caught pacman"<<endl;
                 // reset ghost position
@@ -689,7 +749,14 @@ void *ghostController(void *arg)
                 ghost->y= 454;
                 ghost->isActivated = 0;
             }
-        }
+            else if (!powerupActive && (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE))
+            {
+                
+                reset = 1;
+                pthread_mutex_unlock(&PacmanPosMutex);
+                continue;
+
+            }
         pthread_mutex_unlock(&PacmanPosMutex);
         
         int directionX = 0;
@@ -804,9 +871,7 @@ void *ghostController(void *arg)
 
 
         pthread_mutex_lock(&PacmanPosMutex);
-        if(powerupActive)
-        {
-            if (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE)
+            if (powerupActive && (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE))
             {
                 //cout<<"Ghost caught pacman"<<endl;
                 // reset ghost position
@@ -814,7 +879,14 @@ void *ghostController(void *arg)
                 ghost->y= 454;
                 ghost->isActivated = 0;
             }
-        }
+            else if (!powerupActive && (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE))
+            {
+                
+                reset = true;
+                pthread_mutex_unlock(&PacmanPosMutex);
+                continue;
+               
+            }
         pthread_mutex_unlock(&PacmanPosMutex);
 
         // if close
@@ -1090,6 +1162,12 @@ int main()
         }
         
         movePacman(pacman_texture);
+        if(reset==true)
+        {
+            start = 0;
+            life--;
+            resetGame(ghost1,ghost2,ghost3,ghost4);
+        }
         window.clear();
         window.draw(background);
         drawGrid(window);
