@@ -125,7 +125,7 @@ void *ghost(void *arg)
 
         // print the list of ghosts
         
-        cout<<"THREAD ECEC" <<ghost->ghostID<<endl;
+        //cout<<"THREAD ECEC" <<ghost->ghostID<<endl;
         // Sleep for 1 second
         //sleep(1);
     }
@@ -134,22 +134,17 @@ void *ghost(void *arg)
 int main()
 {
     // Initialize semaphore
-    sem_init(&speedBoostSemaphore, 0, 1);
+    sem_init(&speedBoostSemaphore, 0, 2);
     // create 4 ghosts
     GhostData ghost1;
     ghost1.ghostID = 1;
     ghost1.pr = 1;
     
-    //ghostlist.push_back(ghost1);
     GhostData ghost2;
     ghost2.ghostID = 2;
     ghost2.pr = 2;
     ghostlist.push_back(&ghost2);
-    //ghostlist.push_back(ghost2);
-
-    //ghostlist.front()->speed = 1;
-    //cout << "Speed of ghost " << ghost2.ghostID << " is " << ghost2.speed << endl;
-
+   
     GhostData ghost3;
     ghost3.ghostID = 3;
     ghost3.pr = 1;

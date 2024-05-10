@@ -1,0 +1,28 @@
+
+/*
+// Function to grant speed boosts to ghosts
+void grantSpeedBoost(GhostData& ghost) 
+{
+    // Try to acquire the speed boost semaphore
+    if (sem_trywait(&speedBoostSemaphore) == 0) {
+        // Speed boost granted
+        ghost.speed = 1;
+        //cout<<"Speed Boost granted to ghost "<< ghost.ghostID <<endl;
+         ghost.speedClock.restart();
+    } else {
+        // No speed boosts available
+        // Ghost continues with normal speed
+    }
+}
+// Function to update the speed boost status of a ghost
+void updateSpeedBoost(GhostData& ghost) 
+{
+    // Check if the speed boost is active and has expired (5 seconds duration)
+    if (ghost.speed && ghost.speedClock.getElapsedTime().asSeconds() >= 10) {
+        // Speed boost has expired, release semaphore and reset speed
+        sem_post(&speedBoostSemaphore);
+        ghost.speed = 0;
+        //cout<<"Speed Boost expired for ghost "<< ghost.ghostID <<endl;
+    }
+}
+*/

@@ -45,7 +45,7 @@ int gameMapSkeleton[ROWS][COLS] = {
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, -1, -1, -1, -1, 0, 0, -1, -1, -1, -1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
@@ -96,6 +96,9 @@ pthread_mutex_t SharedmemMutex = PTHREAD_MUTEX_INITIALIZER;
 // Mutex on gameBoard
 pthread_mutex_t GameBoardMutex = PTHREAD_MUTEX_INITIALIZER;
 
+// Mutex on pacman x y position
+pthread_mutex_t PacmanPosMutex = PTHREAD_MUTEX_INITIALIZER;
+
 // Semaphore for speed boost
 sem_t speedBoostSemaphore;
 std::list<GhostData*> ghostlist; // Declare list of pointers to GhostData
@@ -113,7 +116,7 @@ void grantspeedboost()
         ghost->speed = 1;
         ghost->speedClock.restart();
         // Print the message
-        cout << "Speed boost granted to ghost " << ghost->ghostID << endl;
+        //cout << "Speed boost granted to ghost " << ghost->ghostID << endl;
         // Release the mutex
         pthread_mutex_unlock(&ghostlistMutex);
     }
@@ -133,7 +136,7 @@ void updatespeedboost()
             // Remove the speed boost
             ghost->speed = 0;
             // Print the message
-            cout << "Speed boost removed from ghost " << ghost->ghostID << endl;
+            //cout << "Speed boost removed from ghost " << ghost->ghostID << endl;
             // Pop the first ghost from the list
             ghostlist.pop_front();
             // If ghost priority is high, push it to the back
@@ -141,46 +144,18 @@ void updatespeedboost()
             {
                 ghostlist.push_back(ghost);
             }
-            cout << "List of ghosts: ";
-        for (auto it = ghostlist.begin(); it != ghostlist.end(); ++it)
-        {
-            cout << (*it)->ghostID << " ";
-        }
-        cout << endl;
+            //cout << "List of ghosts: ";
+           // for (auto it = ghostlist.begin(); it != ghostlist.end(); ++it)
+           // {
+              //  cout << (*it)->ghostID << " ";
+          //  }
+        //cout << endl;
             // Release the semaphore
             sem_post(&speedBoostSemaphore);
         }
         pthread_mutex_unlock(&ghostlistMutex);
     }
 }
-/*
-// Function to grant speed boosts to ghosts
-void grantSpeedBoost(GhostData& ghost) 
-{
-    // Try to acquire the speed boost semaphore
-    if (sem_trywait(&speedBoostSemaphore) == 0) {
-        // Speed boost granted
-        ghost.speed = 1;
-        //cout<<"Speed Boost granted to ghost "<< ghost.ghostID <<endl;
-         ghost.speedClock.restart();
-    } else {
-        // No speed boosts available
-        // Ghost continues with normal speed
-    }
-}
-// Function to update the speed boost status of a ghost
-void updateSpeedBoost(GhostData& ghost) 
-{
-    // Check if the speed boost is active and has expired (5 seconds duration)
-    if (ghost.speed && ghost.speedClock.getElapsedTime().asSeconds() >= 10) {
-        // Speed boost has expired, release semaphore and reset speed
-        sem_post(&speedBoostSemaphore);
-        ghost.speed = 0;
-        //cout<<"Speed Boost expired for ghost "<< ghost.ghostID <<endl;
-    }
-}
-*/
-
 // function that puts score pallets in gamegrid
 void intitializeGrid()
 {
@@ -702,7 +677,8 @@ void *ghostController(void *arg)
         // Update the speed boost
         updatespeedboost();
 
-        pthread_mutex_lock(&SharedmemMutex);
+       
+        pthread_mutex_lock(&PacmanPosMutex);
         if(powerupActive)
         {
             if (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE)
@@ -711,10 +687,10 @@ void *ghostController(void *arg)
                 // reset ghost position
                 ghost->x= 451;
                 ghost->y= 454;
+                ghost->isActivated = 0;
             }
         }
-        pthread_mutex_unlock(&SharedmemMutex);
-
+        pthread_mutex_unlock(&PacmanPosMutex);
         
         int directionX = 0;
         int directionY = 0;
@@ -827,7 +803,19 @@ void *ghostController(void *arg)
         pthread_mutex_unlock(&GameBoardMutex);
 
 
-        
+        pthread_mutex_lock(&PacmanPosMutex);
+        if(powerupActive)
+        {
+            if (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE)
+            {
+                //cout<<"Ghost caught pacman"<<endl;
+                // reset ghost position
+                ghost->x= 451;
+                ghost->y= 454;
+                ghost->isActivated = 0;
+            }
+        }
+        pthread_mutex_unlock(&PacmanPosMutex);
 
         // if close
         if (closwindow == 1)
@@ -866,23 +854,25 @@ void *userInput(void *arg)
             {
                 // Lock mutex before accessing shared variable
                 pthread_mutex_lock(&SharedmemMutex);
-                if (event.key.code == Keyboard::Up)
+                pthread_mutex_lock(&PacmanPosMutex);
+                if (event.key.code == Keyboard::Up && valid(pacman_x / CELL_SIZE, (pacman_y - CELL_SIZE) / CELL_SIZE))
                 {
                     sharedmem.pacman_direction = 1;
                 }
-                else if (event.key.code == Keyboard::Down)
+                else if (event.key.code == Keyboard::Down && valid(pacman_x / CELL_SIZE, (pacman_y + CELL_SIZE) / CELL_SIZE))
                 {
                     sharedmem.pacman_direction = 2;
                 }
-                else if (event.key.code == Keyboard::Left)
+                else if (event.key.code == Keyboard::Left && valid((pacman_x - CELL_SIZE) / CELL_SIZE, pacman_y / CELL_SIZE))
                 {
                     sharedmem.pacman_direction = 3;
                 }
-                else if (event.key.code == Keyboard::Right)
+                else if (event.key.code == Keyboard::Right && valid((pacman_x + CELL_SIZE) / CELL_SIZE, pacman_y / CELL_SIZE))
                 {
                     sharedmem.pacman_direction = 4;
                 }
                 // Unlock mutex after updating shared variable
+                pthread_mutex_unlock(&PacmanPosMutex);
                 pthread_mutex_unlock(&SharedmemMutex);
             }
         }
@@ -925,6 +915,7 @@ void movePacman(sf::Texture &pacman_texture)
     default:
         break;
     }
+    pthread_mutex_lock(&PacmanPosMutex);
     // boundary detection
     int nextX = pacman_x + pacman_direction_x * CELL_SIZE;
     int nextY = pacman_y + pacman_direction_y * CELL_SIZE;
@@ -940,7 +931,9 @@ void movePacman(sf::Texture &pacman_texture)
         pacman_x += pacman_direction_x * CELL_SIZE;
         pacman_y += pacman_direction_y * CELL_SIZE;
     }
+    pthread_mutex_unlock(&PacmanPosMutex);
 
+   
     // ScorePallet Detection
     if (abs(gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE]) == 2)
     {
@@ -966,10 +959,7 @@ void movePacman(sf::Texture &pacman_texture)
 
         // maybe start a new thread for 5 seconds and then change the flag back to false ;
     }
-    
-    
-
-
+        
     pthread_mutex_unlock(&GameBoardMutex);
 }
 
@@ -1061,13 +1051,10 @@ int main()
     ghost3.pr = 3;
     ghost4.pr = 1;
 
-    // push the ghosts in the ghostlist
-    //ghostlist.push_back(&ghost1);
+    // push the low priority ghosts in the ghostlist
     ghostlist.push_back(&ghost2);
     ghostlist.push_back(&ghost3);
-    //ghostlist.push_back(&ghost4);
-    // Initialize other ghost data as needed
-
+   
     // Create threads for ghost controllers
     pthread_t ghost1Thread;
     pthread_t ghost2Thread;
@@ -1086,19 +1073,20 @@ int main()
 
         if(powerupActive )
         {
-             ghost_shape1.setFillColor(sf::Color::  Blue);
-             ghost_shape2.setFillColor(sf::Color :: Blue);
-             ghost_shape3.setFillColor(sf::Color :: Blue);
-             ghost_shape4.setFillColor(sf::Color :: Blue);
+            ghost_texture1.loadFromFile("ghostscared.png");
+            ghost_texture2.loadFromFile("ghostscared.png");
+            ghost_texture3.loadFromFile("ghostscared.png");
+            ghost_texture4.loadFromFile("ghostscared.png");
         }
         if(powerupClock.getElapsedTime().asSeconds() >=100 )
         {
             powerupActive = false ; 
         //    cout<<"Removed power up ; ";
-             ghost_shape1.setFillColor(sf::Color::White);
-             ghost_shape2.setFillColor(sf::Color :: White);
-                ghost_shape3.setFillColor(sf::Color :: White);
-                ghost_shape4.setFillColor(sf::Color :: White);
+            ghost_texture1.loadFromFile("GhostRed.png");
+            ghost_texture2.loadFromFile("GhostBlue.png");
+            ghost_texture3.loadFromFile("GhostGreen.png");
+            ghost_texture4.loadFromFile("GhostYellow.png");
+
         }
         
         movePacman(pacman_texture);
