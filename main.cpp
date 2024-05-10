@@ -19,7 +19,10 @@
 #include <vector>
 #include <climits>
 #include <semaphore.h>
+<<<<<<< HEAD
 #include <list>
+=======
+>>>>>>> 70aaedf96cafec89c963e28b38eeafdfd3092f4a
 using namespace std;
 using namespace sf;
 // Define game board size
@@ -88,7 +91,10 @@ struct GhostData
     bool hasKey=0;
     bool hasPermit=0;
     bool isActivated=0;
+<<<<<<< HEAD
     int pr = 0;
+=======
+>>>>>>> 70aaedf96cafec89c963e28b38eeafdfd3092f4a
 };
 // Mutex to protect user input
 pthread_mutex_t SharedmemMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -98,6 +104,7 @@ pthread_mutex_t GameBoardMutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Semaphore for speed boost
 sem_t speedBoostSemaphore;
+<<<<<<< HEAD
 std::list<GhostData*> ghostlist; // Declare list of pointers to GhostData
 // add a mutex to protect the ghost list
 pthread_mutex_t ghostlistMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -154,6 +161,10 @@ void updatespeedboost()
     }
 }
 /*
+=======
+
+
+>>>>>>> 70aaedf96cafec89c963e28b38eeafdfd3092f4a
 // Function to grant speed boosts to ghosts
 void grantSpeedBoost(GhostData& ghost) 
 {
@@ -179,7 +190,10 @@ void updateSpeedBoost(GhostData& ghost)
         //cout<<"Speed Boost expired for ghost "<< ghost.ghostID <<endl;
     }
 }
+<<<<<<< HEAD
 */
+=======
+>>>>>>> 70aaedf96cafec89c963e28b38eeafdfd3092f4a
 
 // function that puts score pallets in gamegrid
 void intitializeGrid()
@@ -635,18 +649,30 @@ void leaveGhostHousee(GhostData* ghost) {
     // Attempt to acquire a key
     sem_wait(&keySemaphore);
     ghost->hasKey = true;
+<<<<<<< HEAD
     //cout << "Ghost " << ghost->ghostID << " got a key." << endl;
+=======
+    cout << "Ghost " << ghost->ghostID << " got a key." << endl;
+>>>>>>> 70aaedf96cafec89c963e28b38eeafdfd3092f4a
     sem_post(&keySemaphore);
 
     // Attempt to acquire an exit permit
     sem_wait(&permitSemaphore);
     ghost->hasPermit = true;
+<<<<<<< HEAD
     //cout << "Ghost " << ghost->ghostID << " got an exit permit and key." << endl;
+=======
+    cout << "Ghost " << ghost->ghostID << " got an exit permit and key." << endl;
+>>>>>>> 70aaedf96cafec89c963e28b38eeafdfd3092f4a
     sem_post(&permitSemaphore);
 
     // Ghost leaves the ghost house
     usleep(100000); // Simulate leaving the house
+<<<<<<< HEAD
     //cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
+=======
+    cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
+>>>>>>> 70aaedf96cafec89c963e28b38eeafdfd3092f4a
     ghost->isActivated = true;
     // Release resources
     ghost->hasKey = false;
@@ -674,6 +700,7 @@ void *ghostController(void *arg)
                 usleep(3000000);
             }
         }
+<<<<<<< HEAD
         
         /*if(ghost->speed==0)
         grantSpeedBoost(*ghost);
@@ -701,13 +728,23 @@ void *ghostController(void *arg)
 
         // Update the speed boost
         updatespeedboost();
+=======
+        if(ghost->speed==0)
+        grantSpeedBoost(*ghost);
+        if(ghost->speed==1)
+        updateSpeedBoost(*ghost);
+>>>>>>> 70aaedf96cafec89c963e28b38eeafdfd3092f4a
 
         pthread_mutex_lock(&SharedmemMutex);
         if(powerupActive)
         {
             if (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE)
             {
+<<<<<<< HEAD
                 //cout<<"Ghost caught pacman"<<endl;
+=======
+                cout<<"Ghost caught pacman"<<endl;
+>>>>>>> 70aaedf96cafec89c963e28b38eeafdfd3092f4a
                 // reset ghost position
                 ghost->x= 451;
                 ghost->y= 454;
@@ -1056,10 +1093,13 @@ int main()
     ghost2.ghostID = 2;
     ghost3.ghostID = 3;
     ghost4.ghostID = 4;
+<<<<<<< HEAD
     ghost1.pr = 1;
     ghost2.pr = 2;
     ghost3.pr = 3;
     ghost4.pr = 1;
+=======
+>>>>>>> 70aaedf96cafec89c963e28b38eeafdfd3092f4a
 
     // push the ghosts in the ghostlist
     //ghostlist.push_back(&ghost1);
