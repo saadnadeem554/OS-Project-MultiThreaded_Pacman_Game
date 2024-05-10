@@ -27,10 +27,7 @@ using namespace sf;
 #define COLS 30
 #define CELL_SIZE 32 // Size of each cell in pixels
 
-int pacman_x = CELL_SIZE + 25 / 8;
-int pacman_y = CELL_SIZE + 25 / 4;
-sf::Clock powerupClock ; 
-
+// skeleton game map
 int gameMapSkeleton[ROWS][COLS] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
@@ -63,10 +60,20 @@ int gameMapSkeleton[ROWS][COLS] = {
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 };
+// game map
 int gameMap[ROWS][COLS] = {0};
+// pacman x y cordinates 
+int pacman_x = CELL_SIZE + 25 / 8;
+int pacman_y = CELL_SIZE + 25 / 4;
+
+sf::Clock powerupClock ; 
 int totalScorePallet;
-int Score;
+int Score = 0;
 bool powerupActive = false;
+int life = 3;
+bool start = false;
+bool reset = false;
+
 // shared memory of user direcion
 struct shared
 {
@@ -84,7 +91,6 @@ struct GhostData
     int speed = 0;
     // add a clock to keep track of time of speed
     sf::Clock speedClock;
-    // Add any other relevant data here
     bool hasKey=0;
     bool hasPermit=0;
     bool isActivated=0;
@@ -99,63 +105,17 @@ pthread_mutex_t GameBoardMutex = PTHREAD_MUTEX_INITIALIZER;
 // Mutex on pacman x y position
 pthread_mutex_t PacmanPosMutex = PTHREAD_MUTEX_INITIALIZER;
 
+// semaphores for key and permit
+sem_t keySemaphore;
+sem_t permitSemaphore;
+
 // Semaphore for speed boost
 sem_t speedBoostSemaphore;
-std::list<GhostData*> ghostlist; // Declare list of pointers to GhostData
+// Declare list of pointers to GhostData
+std::list<GhostData*> ghostlist; 
 // add a mutex to protect the ghost list
 pthread_mutex_t ghostlistMutex = PTHREAD_MUTEX_INITIALIZER;
-void grantspeedboost()
-{
-    // Try to acquire the speed boost semaphore
-    if (sem_trywait(&speedBoostSemaphore) == 0) 
-    {
-        // Get a pointer to the first ghost in the list
-        pthread_mutex_lock(&ghostlistMutex);
-        GhostData* ghost = ghostlist.front();
-        // Set the speed of the ghost to 1
-        ghost->speed = 1;
-        ghost->speedClock.restart();
-        // Print the message
-        //cout << "Speed boost granted to ghost " << ghost->ghostID << endl;
-        // Release the mutex
-        pthread_mutex_unlock(&ghostlistMutex);
-    }
-}
 
-void updatespeedboost()
-{
-    // Check if ghost list is not empty
-    if (!ghostlist.empty())
-    {
-        pthread_mutex_lock(&ghostlistMutex);
-        // Get a pointer to the first ghost in the list
-        GhostData* ghost = ghostlist.front();
-        // Check if speed boost is active and time limit exceeded
-        if (ghost->speed && ghost->speedClock.getElapsedTime().asSeconds() > 3)
-        {
-            // Remove the speed boost
-            ghost->speed = 0;
-            // Print the message
-            //cout << "Speed boost removed from ghost " << ghost->ghostID << endl;
-            // Pop the first ghost from the list
-            ghostlist.pop_front();
-            // If ghost priority is high, push it to the back
-            if (ghost->pr > 1)
-            {
-                ghostlist.push_back(ghost);
-            }
-            //cout << "List of ghosts: ";
-           // for (auto it = ghostlist.begin(); it != ghostlist.end(); ++it)
-           // {
-              //  cout << (*it)->ghostID << " ";
-          //  }
-        //cout << endl;
-            // Release the semaphore
-            sem_post(&speedBoostSemaphore);
-        }
-        pthread_mutex_unlock(&ghostlistMutex);
-    }
-}
 // function that puts score pallets in gamegrid
 void intitializeGrid()
 {
@@ -184,7 +144,6 @@ void intitializeGrid()
         }
     }
 }
-int life = 3;
 // Function to draw the grid with appropriate shapes for pellets, power-ups, and walls
 void drawGrid(sf::RenderWindow &window)
 {
@@ -227,21 +186,19 @@ void drawGrid(sf::RenderWindow &window)
 
             case 1:
                 // Draw blue rectangle for wall
-
                 // Set fill color of wallShape to dark blue
                 wallShape.setFillColor(sf::Color::Black);
                 wallShape.setPosition(j * CELL_SIZE, i * CELL_SIZE);
                 window.draw(wallShape);
                 break;
             case -1:
-                // Draw yellow rectangle for ghost house
+                // Draw magenta ghost house
                 wallShape.setFillColor(sf::Color::Magenta);
                 wallShape.setPosition(j * CELL_SIZE, i * CELL_SIZE);
                 window.draw(wallShape);
                 break;
             case 4:
-                // cout<<i<<" "<<j <<endl ;
-                //  Draw blue rectangle for wall
+                //  Draw red powerup // change with texture later
                 powerUpShape.setFillColor(sf::Color::Red);
                 powerUpShape.setPosition(j * CELL_SIZE + CELL_SIZE / 2 - 5, i * CELL_SIZE + CELL_SIZE / 2 - 5);
                 window.draw(powerUpShape);
@@ -252,288 +209,63 @@ void drawGrid(sf::RenderWindow &window)
         }
     }
 }
-/*
-int bfs_shortest_distance(int grid[][30], pair<int, int> start_pos, pair<int, int> end_pos, pair<int, int> called_pos)
+
+// function to give speed boost to ghost
+void grantspeedboost()
 {
-    int rows = 30;
-    int cols = 30;
-    // cout<<"start_pos"<<start_pos.first<<" "<<start_pos.second<<endl;
-    // vector<vector<bool>> visited(rows, vector<bool>(cols, false));
-    bool visited[30][30];
-    // vector<vector<int>> distance(rows, vector<int>(cols, INT_MAX)); // Initialize distances to infinity
-    int distance[30][30];
-    for (int i = 0; i < rows; i++)
+    // Try to acquire the speed boost semaphore
+    if (sem_trywait(&speedBoostSemaphore) == 0) 
     {
-        for (int j = 0; j < cols; j++)
-        {
-            if (grid[i][j] == 1 || grid[i][j] == -1)
-            {
-                visited[i][j] = true;
-                distance[i][j] = 0;
-            }
-            else
-            {
-                visited[i][j] = false;
-                distance[i][j] = INT_MAX;
-            }
-        }
+        // Get a pointer to the first ghost in the list
+        pthread_mutex_lock(&ghostlistMutex);
+        GhostData* ghost = ghostlist.front();
+        // Set the speed of the ghost to 1
+        ghost->speed = 1;
+        ghost->speedClock.restart();
+        // Print the message
+        //cout << "Speed boost granted to ghost " << ghost->ghostID << endl;
+        // Release the mutex
+        pthread_mutex_unlock(&ghostlistMutex);
     }
-
-    queue<pair<int, int>> q;
-    q.push(start_pos);
-    visited[start_pos.first][start_pos.second] = true;
-    visited[called_pos.first][called_pos.second] = true;
-    distance[start_pos.first][start_pos.second] = 0;
-    distance[called_pos.first][called_pos.second] = 0;
-
-    int dr[] = {-1, 1, 0, 0};
-    int dc[] = {0, 0, -1, 1};
-
-    while (!q.empty())
-    {
-        pair<int, int> current_pos = q.front();
-        q.pop();
-        if (current_pos == end_pos)
-        {
-            return distance[current_pos.first][current_pos.second]; // Return distance when destination is reached
-        }
-
-        for (int j = 0; j < 4; ++j)
-        {
-            int new_row = current_pos.first + dr[j];
-            int new_col = current_pos.second + dc[j];
-            // cout<<new_row<<" "<<new_col<<endl;
-            // cout<<visited[new_row][new_col]<<endl;
-            if (new_row > 0 && new_row < rows && new_col > 0 && new_col < cols && (grid[new_row][new_col] == 2 || grid[new_row][new_col] == 0) && !visited[new_row][new_col])
-            {
-                visited[new_row][new_col] = true;
-                distance[new_row][new_col] = distance[current_pos.first][current_pos.second] + 1;
-                q.push({new_row, new_col});
-            }
-        }
-    }
-
-    return INT_MAX; // No path found
 }
 
-bool isValid(int row, int col, vector<vector<int>> &grid)
+// function that updates speed boost and the linked list
+void updatespeedboost()
 {
-    return (row >= 0 && col >= 0 && (grid[row][col] == 2 || grid[row][col] == 0));
-}
-
-int bfs_encountered_positions(int grid[][30], pair<int, int> start_pos, pair<int, int> end_pos)
-{
-    int rows = 30;
-    int cols = 30;
-    vector<vector<bool>> visited(rows, vector<bool>(cols, false));
-    for (int i = 0; i < rows; i++)
+    // Check if ghost list is not empty
+    if (!ghostlist.empty())
     {
-        for (int j = 0; j < cols; j++)
+        pthread_mutex_lock(&ghostlistMutex);
+        // Get a pointer to the first ghost in the list
+        GhostData* ghost = ghostlist.front();
+        // Check if speed boost is active and time limit exceeded
+        if (ghost->speed && ghost->speedClock.getElapsedTime().asSeconds() > 3)
         {
-            if (grid[i][j] == 1 || grid[i][j] == -1)
-                visited[i][j] = true;
-        }
-    }
-
-    queue<pair<int, int>> q;
-    q.push(start_pos);
-    visited[start_pos.first][start_pos.second] = true;
-
-    int encountered_positions = 0;
-
-    while (!q.empty())
-    {
-        pair<int, int> current_pos = q.front();
-        q.pop();
-
-        // Check if we've reached the end position
-        if (current_pos == end_pos)
-        {
-            return encountered_positions;
-        }
-
-        // Define the directions (up, down, left, right)
-        int dr[] = {-1, 1, 0, 0};
-        int dc[] = {0, 0, -1, 1};
-
-        // Explore neighbors
-        for (int i = 0; i < 4; ++i)
-        {
-            int new_row = current_pos.first + dr[i];
-            int new_col = current_pos.second + dc[i];
-            if (new_row > 0 && new_row < rows && new_col > 0 && new_col < cols &&
-                (grid[new_row][new_col] == 2 || grid[new_row][new_col] == 0) && !visited[new_row][new_col])
+            // Remove the speed boost
+            ghost->speed = 0;
+            // Print the message
+            //cout << "Speed boost removed from ghost " << ghost->ghostID << endl;
+            // Pop the first ghost from the list
+            ghostlist.pop_front();
+            // If ghost priority is high, push it to the back
+            if (ghost->pr > 1)
             {
-                visited[new_row][new_col] = true;
-                // Increment the encountered positions count
-                encountered_positions++;
-                q.push({new_row, new_col});
+                ghostlist.push_back(ghost);
             }
+            //cout << "List of ghosts: ";
+           // for (auto it = ghostlist.begin(); it != ghostlist.end(); ++it)
+           // {
+              //  cout << (*it)->ghostID << " ";
+          //  }
+        //cout << endl;
+            // Release the semaphore
+            sem_post(&speedBoostSemaphore);
         }
+        pthread_mutex_unlock(&ghostlistMutex);
     }
-
-    // If end position is not reached, return -1
-    return INT_MAX;
 }
 
-int shortestPath(int startX, int startY, int destX, int destY, int gameMap[ROWS][COLS])
-{
-    bool visited[ROWS][COLS] = {false};
-    std::queue<std::pair<int, int>> q;
-    q.push({startX, startY});
-    visited[startX][startY] = true;
-
-    int dx[] = {0, 0, 1, -1};
-    int dy[] = {1, -1, 0, 0};
-    int dist[ROWS][COLS] = {0}; // Store distances from start position
-
-    while (!q.empty())
-    {
-        int x = q.front().first;
-        int y = q.front().second;
-        q.pop();
-
-        // Check if destination is reached
-        if (x == destX && y == destY)
-        {
-            return dist[x][y];
-        }
-
-        // Explore adjacent cells
-        for (int i = 0; i < 4; ++i)
-        {
-            int newX = x + dx[i];
-            int newY = y + dy[i];
-
-            // Check validity and unvisited status
-            if (isValid(newX, newY, gameMap) && !visited[newX][newY])
-            {
-                q.push({newX, newY});
-                visited[newX][newY] = true;
-                dist[newX][newY] = dist[x][y] + 1; // Update distance
-            }
-        }
-    }
-
-    // If destination is unreachable
-    return INT_MAX;
-}
-
-void *ghostController3(void *arg)
-{
-    GhostData *ghost = (GhostData *)arg;
-    while (true)
-    {
-        cout << ghost->x << " " << ghost->y << endl;
-        int current_posx = ghost->x;
-        int current_posy = ghost->y;
-
-        int shortest_distance1 = 222220;
-        int shortest_distance2 = 222220;
-        int shortest_distance3 = 222220; // usleep(200000); // Adjust the sleep duration as needed
-
-        int shortest_distance4 = 222220;
-        if (gameMap[current_posy / CELL_SIZE][((current_posx) / CELL_SIZE) + 1] == 0 || gameMap[current_posy / CELL_SIZE][((current_posx) / CELL_SIZE) + 1] == 2)
-        {
-            // cout<<current_posx / CELL_SIZE + 1<<" "<<endl;
-            // cout<<"Grid val"<<gameMap[current_posy / CELL_SIZE][((current_posx ) / CELL_SIZE)+1]<<endl;
-            // pair<int, int> start_pos = {current_posx / CELL_SIZE + 1 , (current_posy/ CELL_SIZE)};
-            // pair<int, int> called_pos = {current_posx / CELL_SIZE , (current_posy/ CELL_SIZE)};
-            // pair<int, int> end_pos = {pacman_x/CELL_SIZE, pacman_y/CELL_SIZE};
-
-            // shortest_distance1 = bfs_shortest_distance(gameMap, start_pos, end_pos, called_pos);
-            // shortest_distance1 = bfs_encountered_positions(gameMap, start_pos, end_pos);
-            // cout<<"right"<<endl;
-            int startX = ghost->x / CELL_SIZE + 1;
-            int startY = ghost->y / CELL_SIZE;
-            int destX = pacman_x / CELL_SIZE;
-            int destY = pacman_y / CELL_SIZE;
-            shortest_distance1 = shortestPath(startX, startY, destX, destY, gameMap);
-        }
-        if (gameMap[current_posy / CELL_SIZE][current_posx / CELL_SIZE - 1] == 0 || gameMap[current_posy / CELL_SIZE][current_posx / CELL_SIZE - 1] == 2)
-        {
-            // pair<int, int> start_pos = {current_posx / CELL_SIZE -1, (current_posy/ CELL_SIZE)};
-            // pair<int, int> end_pos = {pacman_x/CELL_SIZE, pacman_y/CELL_SIZE};
-            // pair<int, int> called_pos = {current_posx / CELL_SIZE , (current_posy/ CELL_SIZE)};
-            // shortest_distance2 = bfs_shortest_distance(gameMap, start_pos, end_pos, called_pos);
-            // shortest_distance2 = bfs_encountered_positions(gameMap, start_pos, end_pos);
-            cout << "lrft" << endl;
-
-            int startX = ghost->x / CELL_SIZE - 1;
-            int startY = ghost->y / CELL_SIZE;
-            int destX = pacman_x / CELL_SIZE;
-            int destY = pacman_y / CELL_SIZE;
-            shortest_distance2 = shortestPath(startX, startY, destX, destY, gameMap);
-        }
-        if (gameMap[current_posy / CELL_SIZE - 1][(current_posx) / CELL_SIZE] == 0 || gameMap[current_posy / CELL_SIZE - 1][(current_posx) / CELL_SIZE] == 2)
-        {
-
-            // pair<int, int> start_pos = {(current_posx / CELL_SIZE), ((current_posy )/ CELL_SIZE - 1)};
-            // pair<int, int> end_pos = {pacman_x/CELL_SIZE, pacman_y/CELL_SIZE};
-            // pair<int, int> called_pos = {current_posx / CELL_SIZE , (current_posy/ CELL_SIZE)};
-            // shortest_distance3 = bfs_shortest_distance(gameMap, start_pos, end_pos,called_pos);
-            // shortest_distance3 = bfs_encountered_positions(gameMap, start_pos, end_pos);
-            cout << "up" << endl;
-            int startX = ghost->x / CELL_SIZE;
-            int startY = ghost->y / CELL_SIZE - 1;
-            int destX = pacman_x / CELL_SIZE;
-            int destY = pacman_y / CELL_SIZE;
-            shortest_distance3 = shortestPath(startX, startY, destX, destY, gameMap);
-        }
-        if (gameMap[current_posy / CELL_SIZE + 1][(current_posx) / CELL_SIZE] == 0 || gameMap[current_posy / CELL_SIZE + 1][(current_posx) / CELL_SIZE] == 2)
-        {
-            // pair<int, int> start_pos = {(current_posx / CELL_SIZE), ((current_posy)/ CELL_SIZE) + 1};
-            // pair<int, int> end_pos = {pacman_x/CELL_SIZE, pacman_y/CELL_SIZE};
-            // pair<int, int> called_pos = {current_posx / CELL_SIZE , (current_posy/ CELL_SIZE)};
-
-            // shortest_distance4 = bfs_shortest_distance(gameMap, start_pos, end_pos, called_pos);
-            // shortest_distance4 = bfs_encountered_positions(gameMap, start_pos, end_pos);
-            cout << "down" << endl;
-            int startX = ghost->x / CELL_SIZE;
-            int startY = ghost->y / CELL_SIZE + 1;
-            int destX = pacman_x / CELL_SIZE;
-            int destY = pacman_y / CELL_SIZE;
-            shortest_distance1 = shortestPath(startX, startY, destX, destY, gameMap);
-        }
-        cout << shortest_distance1 << " " << shortest_distance2 << " " << shortest_distance3 << " " << shortest_distance4 << endl;
-        int final = min(shortest_distance1, min(shortest_distance2, min(shortest_distance4, shortest_distance3)));
-
-        // if (final  != 222220) {
-        // cout << "Shortest distance: " << final << endl;
-        //} else {
-        //    cout << "No path found" << endl;
-        //}
-        int directionX = 0;
-        int directionY = 0;
-        if (final == shortest_distance1 && final != 222220)
-        {
-            directionX = 1;
-            ghost->direction = 4;
-        }
-        else if (final == shortest_distance2 && final != 222220)
-        {
-            directionX = -1;
-            ghost->direction = 3;
-        }
-        else if (final == shortest_distance3 && final != 222220)
-        {
-            directionY = -1;
-            ghost->direction = 1;
-        }
-        else if (final == shortest_distance4 && final != 222220)
-        {
-            directionY = 1;
-            ghost->direction = 2;
-        }
-
-        ghost->x = ghost->x + directionX * CELL_SIZE;
-        ghost->y = ghost->y + directionY * CELL_SIZE;
-        // cout<<ghost->x<<" "<<ghost->y<<endl;
-        usleep(100000); // Adjust the sleep duration as needed
-    }
-    pthread_exit(NULL);
-}
-*/
+// function to check a valid position
 bool valid(int x, int y)
 {
     if (x < 0 || x >= 30 || y < 0 || y >= 30)
@@ -542,8 +274,8 @@ bool valid(int x, int y)
         return false;
     return true;
 }
-sem_t keySemaphore;
-sem_t permitSemaphore;
+
+// function to leave the ghost house based on key and permit
 void leaveGhostHouse(GhostData* ghost) 
 {
     // Attempt to acquire a key
@@ -551,6 +283,7 @@ void leaveGhostHouse(GhostData* ghost)
     {
         ghost->hasKey = true;
         cout << "Ghost " << ghost->ghostID << " got a key." << endl;
+        // if key acquired, attempt to get permit
         if(sem_trywait(&permitSemaphore)==0)
         {
             ghost->hasPermit = true;
@@ -562,16 +295,16 @@ void leaveGhostHouse(GhostData* ghost)
             sem_post(&keySemaphore);
             return;
         }
-
+        else
+        {
+            // if dont get permit leave key and exit
+            cout << "Ghost " << ghost->ghostID << " got a key. BUT NO EXIT" << endl;
+            // release the key semaphore
+            sem_post(&keySemaphore);
+            return;
+        }
     }
-    else
-    {
-        cout << "Ghost " << ghost->ghostID << " got a key. BUT NO EXIT" << endl;
-
-        // release the key semaphore
-        sem_post(&keySemaphore);
-        return;
-    }
+    
     
 
     // Attempt to acquire an exit permit
@@ -579,6 +312,7 @@ void leaveGhostHouse(GhostData* ghost)
     {
         ghost->hasPermit = true;
         cout << "Ghost " << ghost->ghostID << " got an exit permit." << endl;
+        // if got exit permit attempt to get key
         if(sem_trywait(&keySemaphore)==0)
         {
             ghost->hasKey = true;
@@ -590,29 +324,17 @@ void leaveGhostHouse(GhostData* ghost)
             sem_post(&keySemaphore);
             return;
         }
+        else
+        {
+            // if not, leave
+            cout << "Ghost " << ghost->ghostID << " got an exit permit. BUT NO KEY" << endl;
+            // release the permit semaphore
+            sem_post(&permitSemaphore);
+            return;
+        }
     }
-    else
-    {
-        cout << "Ghost " << ghost->ghostID << " got an exit permit. BUT NO KEY" << endl;
-
-        // release the permit semaphore
-        sem_post(&permitSemaphore);
-        return;
-    }
-
-    // Ghost leaves the ghost house
-    //usleep(100000); // Simulate leaving the house
-    /*
-    cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
-    ghost->isActivated = true;
-
-    // Release resources
-    ghost->hasKey = false;
-    ghost->hasPermit = false;
-    sem_post(&keySemaphore);
-    sem_post(&permitSemaphore);
-    */
 }
+/*
 void leaveGhostHousee(GhostData* ghost) {
     // Attempt to acquire a key
     sem_wait(&keySemaphore);
@@ -634,31 +356,28 @@ void leaveGhostHousee(GhostData* ghost) {
     ghost->hasKey = false;
     ghost->hasPermit = false;
 }
+*/
 
-bool start = false;
-bool reset = false;
-
+// unction to reset all positions when pacman collide with ghost
 void resetGame(GhostData& ghost1, GhostData& ghost2, GhostData& ghost3, GhostData& ghost4)
 {
     // Reset the game
-   // intitializeGrid();
-    // Reset the ghosts
     ghost1.x = 355;
     ghost1.y = 454;
-    ghost1.isActivated = 0;
     ghost1.speed = 0;
     ghost2.x = 387;
     ghost2.y = 454;
-    ghost2.isActivated = 0;
-    ghost2.speed = 0;
     ghost3.x = 451;
     ghost3.y = 454;
-    ghost3.isActivated = 0;
     ghost3.speed = 0;
     ghost4.x = 483;
     ghost4.y = 454;
-    ghost4.isActivated = 0;
     ghost4.speed = 0;
+    ghost1.isActivated = 0;
+    ghost2.isActivated = 0;
+    ghost3.isActivated = 0;
+    ghost4.isActivated = 0;
+    ghost2.speed = 0;
     ghost1.speedClock.restart();
     ghost2.speedClock.restart();
     ghost3.speedClock.restart();
@@ -671,13 +390,12 @@ void resetGame(GhostData& ghost1, GhostData& ghost2, GhostData& ghost3, GhostDat
     pthread_mutex_lock(&SharedmemMutex);
     sharedmem.pacman_direction = 0;
     pthread_mutex_unlock(&SharedmemMutex);
-    //Score = 0;
     // Reset the powerup
     powerupActive = false;
     // Reset the speed boost
     sem_init(&speedBoostSemaphore, 0, 1);
-    sem_init(&keySemaphore, 0, 1);
-    sem_init(&permitSemaphore, 0, 1);
+    sem_init(&keySemaphore, 0, 2);
+    sem_init(&permitSemaphore, 0, 2);
     // Reset the ghost list
     ghostlist.clear();
     ghostlist.push_back(&ghost2);
@@ -690,14 +408,13 @@ void resetGame(GhostData& ghost1, GhostData& ghost2, GhostData& ghost3, GhostDat
 
 void *ghostController(void *arg)
 {
-    // Unpack arguments
     GhostData *ghost = (GhostData *)arg;
-    // Wait for all ghosts threads to be initialized
-    // Ghost controller logic
     while (true)
     {
+        // Wait for all ghosts threads to be initialized
         while(!start);
         
+        // attempt to leave the house
         if(ghost->isActivated==0)
         {
             usleep(3000000);
@@ -709,13 +426,8 @@ void *ghostController(void *arg)
                 usleep(3000000);
             }
         }
-        // check pacman collision
 
-        
-        /*if(ghost->speed==0)
-        grantSpeedBoost(*ghost);
-        if(ghost->speed==1)
-        updateSpeedBoost(*ghost);*/
+        // higher priority ghost wants the boost, push to the front of the list
         if (ghost->pr == 1 && ghost->speed == 0 && ghost->speedClock.getElapsedTime().asSeconds() > 7)
         {
             ghost->speedClock.restart();
@@ -730,7 +442,7 @@ void *ghostController(void *arg)
             // Grant the speed boost
             grantspeedboost();
         }
-        else if (ghost->pr != 1 && ghost->speed == 0)
+        else if (ghost->pr != 1 && ghost->speed == 0)   // lower priority want the boost always
         {
             // Grant the speed boost
             grantspeedboost();
@@ -739,8 +451,9 @@ void *ghostController(void *arg)
         // Update the speed boost
         updatespeedboost();
 
-       
+       // collisions of pacman with ghost
         pthread_mutex_lock(&PacmanPosMutex);
+        // powerup active
             if (powerupActive && (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE))
             {
                 //cout<<"Ghost caught pacman"<<endl;
@@ -751,11 +464,10 @@ void *ghostController(void *arg)
             }
             else if (!powerupActive && (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE))
             {
-                
+                // signal main to reset game.
                 reset = 1;
                 pthread_mutex_unlock(&PacmanPosMutex);
                 continue;
-
             }
         pthread_mutex_unlock(&PacmanPosMutex);
         
@@ -906,21 +618,18 @@ void *ghostController(void *arg)
 // Function to handle user input (UI TREAD)
 void *userInput(void *arg)
 {
-    // Unpack arguments
     sf::RenderWindow *window = (sf::RenderWindow *)arg;
     while (window->isOpen())
     {
         Event event;
-        // Process SFML events
         while (window->pollEvent(event))
         {
             if (event.type == Event::Closed)
             {
 
+                // signal main to close window
                 closwindow = 1;
-                // window->close();
                 pthread_exit(NULL);
-                // exit(1);
             }
             else if (event.type == Event::KeyPressed)
             {
@@ -992,12 +701,7 @@ void movePacman(sf::Texture &pacman_texture)
     int nextX = pacman_x + pacman_direction_x * CELL_SIZE;
     int nextY = pacman_y + pacman_direction_y * CELL_SIZE;
     pthread_mutex_lock(&GameBoardMutex);
-    if (abs(gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE]) == 1 || gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == -1 || gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == -2)
-    {
-        // cout << "Wall detected!" << endl;
-        // set to the old direction
-    }
-    else
+    if(valid(nextX/CELL_SIZE,nextY/CELL_SIZE))
     {
         // Update pacman's position
         pacman_x += pacman_direction_x * CELL_SIZE;
@@ -1019,26 +723,20 @@ void movePacman(sf::Texture &pacman_texture)
     {
         gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] = 0;
         powerupActive = true;
-        if (powerupActive)
+            if (powerupActive)
            {
             //cout << "Eaten power up ";
             powerupClock.restart();
             // make a new thread and let it sleep for 5 sec , then change the flag 
-
            }
-
-        
-
         // maybe start a new thread for 5 seconds and then change the flag back to false ;
-    }
-        
+    }    
     pthread_mutex_unlock(&GameBoardMutex);
 }
 
 int main()
 {
 
-    // XInitThreads();
     //  Initialize random seed
     srand(time(nullptr));
     // Initialize game board
@@ -1056,16 +754,12 @@ int main()
         }
     }
 
-    // initializeGameBoard();
     //  Create SFML window
-    sf::RenderWindow window(sf::VideoMode(1000, 1000), "SFML window");
+    sf::RenderWindow window(sf::VideoMode(1000, 1000), "PHAK MAYN");
     // background image
     sf::Texture background_texture;
     background_texture.loadFromFile("background.png");
     sf::Sprite background(background_texture);
-
-
-
     // Create the yellow circle (player)
     sf::CircleShape pacman_shape(25 / 2);
     // load pacman image
@@ -1085,12 +779,7 @@ int main()
     ghost_texture3.loadFromFile("GhostGreen.png");
     ghost_shape3.setTexture(&ghost_texture3);
     ghost_texture4.loadFromFile("GhostYellow.png");
-    ghost_shape4.setTexture(&ghost_texture4);
-
-
-    //pacman_shape.setFillColor(sf::Color::Yellow);
-    
-
+    ghost_shape4.setTexture(&ghost_texture4);    
     pacman_shape.setPosition(25 / 8, 25 / 4); // Set initial position to (100, 50)
     // set ghost position to (10, 10)
     ghost_shape1.setPosition(65, 38);
@@ -1098,10 +787,11 @@ int main()
     ghost_shape3.setPosition(65, 38);
     ghost_shape4.setPosition(65, 38);
 
+    
     // Initialize semaphore for speed boost
     sem_init(&speedBoostSemaphore, 0, 2); // Initialize with 2 speed boosts available
 
-    // Initialize semaphores
+    // Initialize semaphores foe key and permit
     sem_init(&keySemaphore, 0, 2);
     sem_init(&permitSemaphore, 0, 2);
 
@@ -1161,25 +851,27 @@ int main()
 
         }
         
+        // move the pcman
         movePacman(pacman_texture);
+        // check if game needs to be reset on collision with ghost
         if(reset==true)
         {
             start = 0;
             life--;
             resetGame(ghost1,ghost2,ghost3,ghost4);
         }
+
+        // draw the game
         window.clear();
         window.draw(background);
         drawGrid(window);
-
-        // moveGhost(ghost1);
         pacman_shape.setPosition(pacman_x, pacman_y); // Update pacman position
         ghost_shape1.setPosition(ghost1.x, ghost1.y); // Update ghost position
         ghost_shape2.setPosition(ghost2.x, ghost2.y); // Update ghost position
         ghost_shape3.setPosition(ghost3.x, ghost3.y); // Update ghost position
         ghost_shape4.setPosition(ghost4.x, ghost4.y); // Update ghost position
-        window.draw(pacman_shape);                    // Draw the player (yellow circle)
-        window.draw(ghost_shape1);                    // Draw the ghost (red circle)
+        window.draw(pacman_shape);                    
+        window.draw(ghost_shape1);                    
         window.draw(ghost_shape2);
         window.draw(ghost_shape3);
         window.draw(ghost_shape4);
@@ -1189,7 +881,6 @@ int main()
         {
             window.close();
         }
-         //cout<<"pacman_x: "<<pacman_x<<" pacman_y: "<<pacman_y<<endl;
     }
 
     // Join threads
