@@ -18,6 +18,8 @@
 #include <stack>
 #include <vector>
 #include <climits>
+#include <semaphore.h>
+#include <list>
 using namespace std;
 using namespace sf;
 // Define game board size
@@ -43,7 +45,7 @@ int gameMapSkeleton[ROWS][COLS] = {
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, -1, -1, -1, -1, 0, 0, -1, -1, -1, -1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1},
@@ -77,143 +79,107 @@ struct GhostData
 {
     int x;
     int y;
+    int ghostID;
     int direction = 2;
+    int speed = 0;
+    // add a clock to keep track of time of speed
+    sf::Clock speedClock;
     // Add any other relevant data here
+    bool hasKey=0;
+    bool hasPermit=0;
+    bool isActivated=0;
+    int pr = 0;
 };
-
-// Define a structure to represent a cell in the grid
-struct Cell
-{
-    int x, y;
-    int distance;
-    bool operator<(const Cell &other) const
-    {
-        return distance > other.distance; // For min-heap
-    }
-};
-
-// Define helper function to calculate Manhattan distance
-int manhattanDistance(int x1, int y1, int x2, int y2)
-{
-    return abs(x1 - x2) + abs(y1 - y2);
-}
-
-// Dijkstra's algorithm function
-int **dijkstra(int srcX, int srcY, int destX, int destY, const int gameMap[ROWS][COLS])
-{
-    // Initialize distances to infinity
-    int **dist = new int *[ROWS];
-    for (int i = 0; i < ROWS; ++i)
-    {
-        dist[i] = new int[COLS];
-        for (int j = 0; j < COLS; ++j)
-        {
-            dist[i][j] = INT_MAX;
-        }
-    }
-
-    // Initialize priority queue
-    priority_queue<Cell> pq;
-
-    // Push source cell into priority queue
-    pq.push({srcX, srcY, 0});
-    dist[srcX][srcY] = 0;
-
-    // Define possible movements
-    int dx[] = {0, 0, -1, 1}; // Up, down, left, right
-    int dy[] = {-1, 1, 0, 0};
-
-    while (!pq.empty())
-    {
-        Cell curr = pq.top();
-        pq.pop();
-
-        if (curr.x == destX && curr.y == destY)
-        {
-            // Found destination, stop search
-            break;
-        }
-
-        // Explore neighbors
-        for (int i = 0; i < 4; ++i)
-        {
-            int newX = curr.x + dx[i];
-            int newY = curr.y + dy[i];
-
-            if (newX >= 0 && newX < ROWS && newY >= 0 && newY < COLS && gameMap[newY / CELL_SIZE][newX / CELL_SIZE] != 1 && dist[newX][newY] > curr.distance + 1)
-            {
-                dist[newX][newY] = curr.distance + 1;
-                pq.push({newX, newY, curr.distance + 1});
-            }
-        }
-    }
-
-    return dist;
-}
-
-void moveGhost(GhostData &ghost)
-{
-    // Use Dijkstra's algorithm to find the shortest path to pacman
-    int **shortestPath = dijkstra(ghost.x, ghost.y, pacman_x, pacman_y, gameMap);
-
-    // Get the next cell in the shortest path
-    int nextX = pacman_x;
-    int nextY = pacman_y;
-
-    // Update ghost direction based on the next cell
-    if (nextX < ghost.x)
-    {
-        ghost.direction = 3; // Left
-    }
-    else if (nextX > ghost.x)
-    {
-        ghost.direction = 4; // Right
-    }
-    else if (nextY < ghost.y)
-    {
-        ghost.direction = 1; // Up
-    }
-    else if (nextY > ghost.y)
-    {
-        ghost.direction = 2; // Down
-    }
-
-    // Move the ghost to the next cell
-    ghost.x = nextX;
-    ghost.y = nextY;
-
-    // Free memory allocated for the shortest path
-    for (int i = 0; i < ROWS; ++i)
-    {
-        delete[] shortestPath[i];
-    }
-    delete[] shortestPath;
-}
-
-// Ghost controller function
-void *ghostController2(void *arg)
-{
-    // Unpack arguments
-    GhostData *ghost = (GhostData *)arg;
-
-    // Ghost controller logic
-    while (true)
-    {
-        // Move ghost
-        moveGhost(*ghost);
-
-        // Sleep for a short duration to control the speed of the ghost
-        usleep(200000); // Adjust the sleep duration as needed
-    }
-
-    pthread_exit(NULL);
-}
-
 // Mutex to protect user input
 pthread_mutex_t SharedmemMutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Mutex on gameBoard
 pthread_mutex_t GameBoardMutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Semaphore for speed boost
+sem_t speedBoostSemaphore;
+std::list<GhostData*> ghostlist; // Declare list of pointers to GhostData
+// add a mutex to protect the ghost list
+pthread_mutex_t ghostlistMutex = PTHREAD_MUTEX_INITIALIZER;
+void grantspeedboost()
+{
+    // Try to acquire the speed boost semaphore
+    if (sem_trywait(&speedBoostSemaphore) == 0) 
+    {
+        // Get a pointer to the first ghost in the list
+        pthread_mutex_lock(&ghostlistMutex);
+        GhostData* ghost = ghostlist.front();
+        // Set the speed of the ghost to 1
+        ghost->speed = 1;
+        ghost->speedClock.restart();
+        // Print the message
+        cout << "Speed boost granted to ghost " << ghost->ghostID << endl;
+        // Release the mutex
+        pthread_mutex_unlock(&ghostlistMutex);
+    }
+}
+
+void updatespeedboost()
+{
+    // Check if ghost list is not empty
+    if (!ghostlist.empty())
+    {
+        pthread_mutex_lock(&ghostlistMutex);
+        // Get a pointer to the first ghost in the list
+        GhostData* ghost = ghostlist.front();
+        // Check if speed boost is active and time limit exceeded
+        if (ghost->speed && ghost->speedClock.getElapsedTime().asSeconds() > 3)
+        {
+            // Remove the speed boost
+            ghost->speed = 0;
+            // Print the message
+            cout << "Speed boost removed from ghost " << ghost->ghostID << endl;
+            // Pop the first ghost from the list
+            ghostlist.pop_front();
+            // If ghost priority is high, push it to the back
+            if (ghost->pr > 1)
+            {
+                ghostlist.push_back(ghost);
+            }
+            cout << "List of ghosts: ";
+        for (auto it = ghostlist.begin(); it != ghostlist.end(); ++it)
+        {
+            cout << (*it)->ghostID << " ";
+        }
+        cout << endl;
+            // Release the semaphore
+            sem_post(&speedBoostSemaphore);
+        }
+        pthread_mutex_unlock(&ghostlistMutex);
+    }
+}
+/*
+// Function to grant speed boosts to ghosts
+void grantSpeedBoost(GhostData& ghost) 
+{
+    // Try to acquire the speed boost semaphore
+    if (sem_trywait(&speedBoostSemaphore) == 0) {
+        // Speed boost granted
+        ghost.speed = 1;
+        //cout<<"Speed Boost granted to ghost "<< ghost.ghostID <<endl;
+         ghost.speedClock.restart();
+    } else {
+        // No speed boosts available
+        // Ghost continues with normal speed
+    }
+}
+// Function to update the speed boost status of a ghost
+void updateSpeedBoost(GhostData& ghost) 
+{
+    // Check if the speed boost is active and has expired (5 seconds duration)
+    if (ghost.speed && ghost.speedClock.getElapsedTime().asSeconds() >= 10) {
+        // Speed boost has expired, release semaphore and reset speed
+        sem_post(&speedBoostSemaphore);
+        ghost.speed = 0;
+        //cout<<"Speed Boost expired for ghost "<< ghost.ghostID <<endl;
+    }
+}
+*/
 
 // function that puts score pallets in gamegrid
 void intitializeGrid()
@@ -240,109 +206,6 @@ void intitializeGrid()
             }
             else
                 gameMap[i][j] = gameMapSkeleton[i][j];
-        }
-    }
-}
-
-// Function to initialize the game board with values
-void initializeGameBoard()
-{
-    for (int i = 0; i < ROWS; i++)
-    {
-        for (int j = 0; j < COLS; j++)
-        {
-            if ((i == 0 || j == 0) || (i == ROWS - 1 || j == COLS - 1))
-            {
-                // Fixed walls
-                gameMap[i][j] = -2;
-            }
-            // Ghost house
-            else if ((i == 10 && j >= 10) && (i == 10 && j <= 14))
-            {
-                if (i != 10 || j != 12)
-                    gameMap[i][j] = -1;
-            }
-            else if ((i == 14 && j >= 10) && (i == 14 && j <= 14))
-            {
-                gameMap[i][j] = -1;
-            }
-            else if ((j == 10 && i >= 10) && (j == 10 && i <= 14))
-            {
-                gameMap[i][j] = -1;
-            }
-            else if ((j == 14 && i >= 10) && (j == 14 && i <= 14))
-            {
-                gameMap[i][j] = -1;
-            }
-            // Openings
-            else if (i == 12 || j == 12)
-            {
-                gameMap[i][j] = 0;
-            }
-            // Small square
-            else if ((i == 6 && j >= 6) && (i == 6 && j <= 18))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((i == 18 && j >= 6) && (i == 18 && j <= 18))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((j == 6 && i >= 6) && (j == 6 && i <= 18))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((j == 18 && i >= 6) && (j == 18 && i <= 18))
-            {
-                gameMap[i][j] = 1;
-            }
-            // Bigger square
-            else if ((i == 4 && j >= 4) && (i == 4 && j <= 20))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((i == 20 && j >= 4) && (i == 20 && j <= 20))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((j == 4 && i >= 4) && (j == 4 && i <= 20))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((j == 20 && i >= 4) && (j == 20 && i <= 20))
-            {
-                gameMap[i][j] = 1;
-            }
-            // Bigger square
-            else if ((i == 2 && j >= 2) && (i == 2 && j <= 22))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((i == 22 && j >= 2) && (i == 22 && j <= 22))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((j == 2 && i >= 2) && (j == 2 && i <= 22))
-            {
-                gameMap[i][j] = 1;
-            }
-            else if ((j == 22 && i >= 2) && (j == 22 && i <= 22))
-            {
-                gameMap[i][j] = 1;
-            }
-            else
-            {
-                // Randomly place pellets and power-ups
-                int randNum = rand() % 5; // Generate random number from 0 to 4
-                if (randNum == 2)
-                {
-                    gameMap[i][j] = 2 + rand() % 3; // Randomly assign power-up value (2, 3, or 4)
-                }
-                else
-                {
-                    gameMap[i][j] = 0;
-                }
-            }
         }
     }
 }
@@ -384,7 +247,7 @@ void drawGrid(sf::RenderWindow &window)
                 // Draw blue rectangle for wall
 
                 // Set fill color of wallShape to dark blue
-                wallShape.setFillColor(darkBlue);
+                wallShape.setFillColor(sf::Color::Black);
                 wallShape.setPosition(j * CELL_SIZE, i * CELL_SIZE);
                 window.draw(wallShape);
                 break;
@@ -407,51 +270,7 @@ void drawGrid(sf::RenderWindow &window)
         }
     }
 }
-
-struct Node
-{
-    pair<int, int> pos;
-    int g_score;
-    int h_score;
-    Node *parent;
-
-    Node(pair<int, int> pos, int g_score, int h_score, Node *parent) : pos(pos), g_score(g_score), h_score(h_score), parent(parent) {}
-
-    int f_score() const
-    {
-        return g_score + h_score;
-    }
-};
-
-int manhattan_distance(pair<int, int> a, pair<int, int> b)
-{
-    return abs(a.first - b.first) + abs(a.second - b.second);
-}
-
-bool isValid(int row, int col, int grid[][30])
-{
-    return (row >= 0 && col >= 0 && (grid[row][col] == 2 || grid[row][col] == 0));
-}
-
-vector<pair<int, int>> getNeighbors(pair<int, int> pos, int rows, int cols)
-{
-    vector<pair<int, int>> neighbors;
-    int dr[] = {-1, 1, 0, 0};
-    int dc[] = {0, 0, -1, 1};
-
-    for (int i = 0; i < 4; ++i)
-    {
-        int new_row = pos.first + dr[i];
-        int new_col = pos.second + dc[i];
-        if (new_row >= 0 && new_row < rows && new_col >= 0 && new_col < cols)
-        {
-            neighbors.push_back({new_row, new_col});
-        }
-    }
-
-    return neighbors;
-}
-
+/*
 int bfs_shortest_distance(int grid[][30], pair<int, int> start_pos, pair<int, int> end_pos, pair<int, int> called_pos)
 {
     int rows = 30;
@@ -732,95 +551,222 @@ void *ghostController3(void *arg)
     }
     pthread_exit(NULL);
 }
+*/
+bool valid(int x, int y)
+{
+    if (x < 0 || x >= 30 || y < 0 || y >= 30)
+        return false;
+    if (gameMap[y][x] == 1 || gameMap[y][x] == -1)
+        return false;
+    return true;
+}
+sem_t keySemaphore;
+sem_t permitSemaphore;
+void leaveGhostHouse(GhostData* ghost) 
+{
+    // Attempt to acquire a key
+    if(sem_trywait(&keySemaphore)==0)
+    {
+        ghost->hasKey = true;
+        cout << "Ghost " << ghost->ghostID << " got a key." << endl;
+        if(sem_trywait(&permitSemaphore)==0)
+        {
+            ghost->hasPermit = true;
+            cout << "Ghost " << ghost->ghostID << " got an exit permit amd key." << endl;
+            cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
+            ghost->isActivated = true;
+            // release the semaphores
+            sem_post(&permitSemaphore);
+            sem_post(&keySemaphore);
+            return;
+        }
 
-// User
+    }
+    else
+    {
+        cout << "Ghost " << ghost->ghostID << " got a key. BUT NO EXIT" << endl;
+
+        // release the key semaphore
+        sem_post(&keySemaphore);
+        return;
+    }
+    
+
+    // Attempt to acquire an exit permit
+    if(sem_trywait(&permitSemaphore)==0)
+    {
+        ghost->hasPermit = true;
+        cout << "Ghost " << ghost->ghostID << " got an exit permit." << endl;
+        if(sem_trywait(&keySemaphore)==0)
+        {
+            ghost->hasKey = true;
+            cout << "Ghost " << ghost->ghostID << " got a key amd exit." << endl;
+            cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
+            ghost->isActivated = true;
+            // release the semaphores
+            sem_post(&permitSemaphore);
+            sem_post(&keySemaphore);
+            return;
+        }
+    }
+    else
+    {
+        cout << "Ghost " << ghost->ghostID << " got an exit permit. BUT NO KEY" << endl;
+
+        // release the permit semaphore
+        sem_post(&permitSemaphore);
+        return;
+    }
+
+    // Ghost leaves the ghost house
+    //usleep(100000); // Simulate leaving the house
+    /*
+    cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
+    ghost->isActivated = true;
+
+    // Release resources
+    ghost->hasKey = false;
+    ghost->hasPermit = false;
+    sem_post(&keySemaphore);
+    sem_post(&permitSemaphore);
+    */
+}
+void leaveGhostHousee(GhostData* ghost) {
+    // Attempt to acquire a key
+    sem_wait(&keySemaphore);
+    ghost->hasKey = true;
+    //cout << "Ghost " << ghost->ghostID << " got a key." << endl;
+    sem_post(&keySemaphore);
+
+    // Attempt to acquire an exit permit
+    sem_wait(&permitSemaphore);
+    ghost->hasPermit = true;
+    //cout << "Ghost " << ghost->ghostID << " got an exit permit and key." << endl;
+    sem_post(&permitSemaphore);
+
+    // Ghost leaves the ghost house
+    usleep(100000); // Simulate leaving the house
+    //cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
+    ghost->isActivated = true;
+    // Release resources
+    ghost->hasKey = false;
+    ghost->hasPermit = false;
+}
+
+bool start = false;
 void *ghostController(void *arg)
 {
     // Unpack arguments
     GhostData *ghost = (GhostData *)arg;
-
+    // Wait for all ghosts threads to be initialized
+    while(!start);
     // Ghost controller logic
     while (true)
     {
+        if(ghost->isActivated==0)
+        {
+            usleep(3000000);
+            leaveGhostHouse(ghost);
+            if(ghost->isActivated==0)
+            {
+                // Ghost is still in the ghost house sleep for 3 seconds
+                cout<<ghost->ghostID<<" "<<endl<<endl;
+                usleep(3000000);
+            }
+        }
+        
+        /*if(ghost->speed==0)
+        grantSpeedBoost(*ghost);
+        if(ghost->speed==1)
+        updateSpeedBoost(*ghost);*/
+        if (ghost->pr == 1 && ghost->speed == 0 && ghost->speedClock.getElapsedTime().asSeconds() > 7)
+        {
+            ghost->speedClock.restart();
+            // Push the ghost back to the end of ghostlist
+            pthread_mutex_lock(&ghostlistMutex);
+            GhostData* temp = ghostlist.front();
+            ghostlist.pop_front();
+            ghostlist.push_front(ghost);
+            ghostlist.push_front(temp);
+            pthread_mutex_unlock(&ghostlistMutex);
+            updatespeedboost();
+            // Grant the speed boost
+            grantspeedboost();
+        }
+        else if (ghost->pr != 1 && ghost->speed == 0)
+        {
+            // Grant the speed boost
+            grantspeedboost();
+        }
+
+        // Update the speed boost
+        updatespeedboost();
+
+        pthread_mutex_lock(&SharedmemMutex);
+        if(powerupActive)
+        {
+            if (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE)
+            {
+                //cout<<"Ghost caught pacman"<<endl;
+                // reset ghost position
+                ghost->x= 451;
+                ghost->y= 454;
+            }
+        }
+        pthread_mutex_unlock(&SharedmemMutex);
+
+        
         int directionX = 0;
         int directionY = 0;
 
         bool chosen = false;
         pthread_mutex_lock(&GameBoardMutex);
-       
-        
-        
-
             if (ghost->direction == 1 || ghost->direction == 2)
             { // Up or down
-                if (rand() % 2 == 0)
-                { // Randomly choose left or right
-                    if (gameMap[ghost->y / CELL_SIZE][(ghost->x + CELL_SIZE) / CELL_SIZE] != 1 &&
-                        gameMap[ghost->y / CELL_SIZE][(ghost->x + CELL_SIZE) / CELL_SIZE] != -1 &&
-                        gameMap[ghost->y / CELL_SIZE][(ghost->x + CELL_SIZE) / CELL_SIZE] != -2)
+                // Randomly choose left or right
+                    if (valid((ghost->x + CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE) && rand() % 2 == 0)
                     {
-
-
                         directionX = 1;
                         chosen = true;
                         ghost->direction = 4;
                     }
-                }
-                else
-                {
-                    if (gameMap[ghost->y / CELL_SIZE][(ghost->x - CELL_SIZE) / CELL_SIZE] != 1 &&
-                        gameMap[ghost->y / CELL_SIZE][(ghost->x - CELL_SIZE) / CELL_SIZE] != -1 &&
-                        gameMap[ghost->y / CELL_SIZE][(ghost->x - CELL_SIZE) / CELL_SIZE] != -2)
+                    else if (valid((ghost->x - CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE) && rand() % 2 == 0)
                     {
 
                         directionX = -1;
                         chosen = true;
                         ghost->direction = 3;
                     }
-                }
             }
             else if (ghost->direction == 3 || ghost->direction == 4)
             { // Left or right
-                if (rand() % 2 == 0)
-                { // Randomly choose up or down
-                    if (gameMap[(ghost->y + CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != 1 &&
-                        gameMap[(ghost->y + CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -1 &&
-                        gameMap[(ghost->y + CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -2)
-                    {   
-
-                        directionY = 1;
-                        chosen = true;
-                        ghost->direction = 1;
-                       
-                    }
+            // Randomly choose up or down
+                if (valid(ghost->x / CELL_SIZE, (ghost->y + CELL_SIZE) / CELL_SIZE) && rand() % 2 ==0)
+                {   
+                    directionY = 1;
+                    chosen = true;
+                    ghost->direction = 2;                       
                 }
-                else
-                {
-                    if (gameMap[(ghost->y - CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != 1 &&
-                        gameMap[(ghost->y - CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -1 &&
-                        gameMap[(ghost->y - CELL_SIZE) / CELL_SIZE][(ghost->x) / CELL_SIZE] != -2)
-                    {
-
-                        directionY = -1;
-                        chosen = true;
-                        ghost->direction = 2;
-                        
-                    }
-                }
-            }
         
+                else if (valid(ghost->x / CELL_SIZE, (ghost->y - CELL_SIZE) / CELL_SIZE)&& rand() % 2 ==0)
+                {
 
+                    directionY = -1;
+                    chosen = true;
+                    ghost->direction = 1;   
+                }     
+            }
         pthread_mutex_unlock(&GameBoardMutex);
         if (!chosen)
         {
             // Continue in current direction
             if (ghost->direction == 1)
             {
-                directionY = 1;
+                directionY = -1;
             }
             else if (ghost->direction == 2)
             {
-                directionY = -1;
+                directionY = 1;
             }
             else if (ghost->direction == 3)
             {
@@ -837,17 +783,16 @@ void *ghostController(void *arg)
 
         // Check for collisions with walls
         pthread_mutex_lock(&GameBoardMutex);
-        if (nextX > 0 && nextX < 30 * CELL_SIZE && nextY > 0 && nextY < 30 * CELL_SIZE && (gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 0 || gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 2))
+        if (valid(nextX / CELL_SIZE, nextY / CELL_SIZE))
         {
             ghost->x += directionX * CELL_SIZE;
             ghost->y += directionY * CELL_SIZE;
-                        cout<<ghost->x/CELL_SIZE<<" "<< ghost->y/CELL_SIZE<<endl; 
-
+            //cout<<ghost->x/CELL_SIZE<<" "<< ghost->y/CELL_SIZE<<endl; 
         }
         else
         {
             // move ghost in opposite direction
-            cout<<"walled";
+            //cout<<"walled";
             if (ghost->direction == 1)
             {
                 ghost->direction = 2;
@@ -859,7 +804,6 @@ void *ghostController(void *arg)
             {
                 ghost->direction = 1;
                 directionY =-1 ; 
-
                 ghost->x += directionX * CELL_SIZE;
                 ghost->y += directionY * CELL_SIZE;
             }
@@ -882,13 +826,19 @@ void *ghostController(void *arg)
         }
         pthread_mutex_unlock(&GameBoardMutex);
 
+
+        
+
         // if close
         if (closwindow == 1)
         {
             pthread_exit(NULL);
         }
         // Sleep for a short duration to control the speed of the ghost
+        if(ghost->speed==0)
         usleep(200000); // Adjust the sleep duration as needed
+        else
+        usleep(100000);
     }
     pthread_exit(NULL);
 }
@@ -939,7 +889,8 @@ void *userInput(void *arg)
     }
     pthread_exit(NULL);
 }
-void movePacman()
+
+void movePacman(sf::Texture &pacman_texture)
 {
     int pacman_direction_x = 0;
     int pacman_direction_y = 0;
@@ -953,18 +904,23 @@ void movePacman()
     case 1: // Up
         pacman_direction_x = 0;
         pacman_direction_y = -1;
+        pacman_texture.loadFromFile("pacmanUp.png");
         break;
     case 2: // Down
         pacman_direction_x = 0;
         pacman_direction_y = 1;
+        pacman_texture.loadFromFile("pacmanDown.png");
         break;
     case 3: // Left
         pacman_direction_x = -1;
         pacman_direction_y = 0;
+        pacman_texture.loadFromFile("pacmanLeft.png");
         break;
     case 4: // Right
         pacman_direction_x = 1;
         pacman_direction_y = 0;
+        // Load pacman image
+        pacman_texture.loadFromFile("pacmanRight.png");
         break;
     default:
         break;
@@ -1000,7 +956,7 @@ void movePacman()
         powerupActive = true;
         if (powerupActive)
            {
-            cout << "Eaten power up ";
+            //cout << "Eaten power up ";
             powerupClock.restart();
             // make a new thread and let it sleep for 5 sec , then change the flag 
 
@@ -1041,36 +997,88 @@ int main()
     // initializeGameBoard();
     //  Create SFML window
     sf::RenderWindow window(sf::VideoMode(1000, 1000), "SFML window");
+    // background image
+    sf::Texture background_texture;
+    background_texture.loadFromFile("background.png");
+    sf::Sprite background(background_texture);
+
+
+
     // Create the yellow circle (player)
     sf::CircleShape pacman_shape(25 / 2);
+    // load pacman image
+    sf::Texture pacman_texture;
+    pacman_texture.loadFromFile("pacmanRight.png");
+    pacman_shape.setTexture(&pacman_texture);
     sf::CircleShape ghost_shape1(25 / 2);
     sf::CircleShape ghost_shape2(25 / 2);
+    sf::CircleShape ghost_shape3(25 / 2);
+    sf::CircleShape ghost_shape4(25 / 2);
 
-    pacman_shape.setFillColor(sf::Color::Yellow);
-    ghost_shape1.setFillColor(sf::Color::Red);
-    ghost_shape2.setFillColor(sf::Color::Blue);
+    sf::Texture ghost_texture1, ghost_texture2, ghost_texture3, ghost_texture4;
+    ghost_texture1.loadFromFile("GhostRed.png");
+    ghost_shape1.setTexture(&ghost_texture1);
+    ghost_texture2.loadFromFile("GhostBlue.png");
+    ghost_shape2.setTexture(&ghost_texture2);
+    ghost_texture3.loadFromFile("GhostGreen.png");
+    ghost_shape3.setTexture(&ghost_texture3);
+    ghost_texture4.loadFromFile("GhostYellow.png");
+    ghost_shape4.setTexture(&ghost_texture4);
+
+
+    //pacman_shape.setFillColor(sf::Color::Yellow);
+    
+
     pacman_shape.setPosition(25 / 8, 25 / 4); // Set initial position to (100, 50)
     // set ghost position to (10, 10)
     ghost_shape1.setPosition(65, 38);
     ghost_shape2.setPosition(65, 38);
+    ghost_shape3.setPosition(65, 38);
+    ghost_shape4.setPosition(65, 38);
+
+    // Initialize semaphore for speed boost
+    sem_init(&speedBoostSemaphore, 0, 2); // Initialize with 2 speed boosts available
+
+    // Initialize semaphores
+    sem_init(&keySemaphore, 0, 2);
+    sem_init(&permitSemaphore, 0, 2);
 
     // Create thread for user input
     pthread_t userInputThread;
     pthread_create(&userInputThread, nullptr, userInput, &window);
 
     // Initialize ghosts' data
-    GhostData ghost1 = {899, 38}; // Example initial position
-    GhostData ghost2 = {65, 38};  // Example initial position
-    // ghost2.direction = 3;
+    GhostData ghost1 = {355, 454}; // Example initial position
+    GhostData ghost2 = {387, 454};  // Example initial position
+    GhostData ghost3 = {451, 454}; // Example initial position
+    GhostData ghost4 = {483, 454};  // Example initial position
+    ghost1.ghostID = 1;
+    ghost2.ghostID = 2;
+    ghost3.ghostID = 3;
+    ghost4.ghostID = 4;
+    ghost1.pr = 1;
+    ghost2.pr = 2;
+    ghost3.pr = 3;
+    ghost4.pr = 1;
 
+    // push the ghosts in the ghostlist
+    //ghostlist.push_back(&ghost1);
+    ghostlist.push_back(&ghost2);
+    ghostlist.push_back(&ghost3);
+    //ghostlist.push_back(&ghost4);
     // Initialize other ghost data as needed
 
     // Create threads for ghost controllers
     pthread_t ghost1Thread;
     pthread_t ghost2Thread;
+    pthread_t ghost3Thread;
+    pthread_t ghost4Thread;
 
     pthread_create(&ghost1Thread, nullptr, ghostController, &ghost1);
     pthread_create(&ghost2Thread, nullptr, ghostController, &ghost2);
+    pthread_create(&ghost3Thread, nullptr, ghostController, &ghost3);
+    pthread_create(&ghost4Thread, nullptr, ghostController, &ghost4);
+    start = true;
     // Main loop
     while (window.isOpen())
     {
@@ -1078,57 +1086,59 @@ int main()
 
         if(powerupActive )
         {
-             ghost_shape1.setFillColor(sf::Color::White);
-             ghost_shape2.setFillColor(sf::Color :: White);
+             ghost_shape1.setFillColor(sf::Color::  Blue);
+             ghost_shape2.setFillColor(sf::Color :: Blue);
+             ghost_shape3.setFillColor(sf::Color :: Blue);
+             ghost_shape4.setFillColor(sf::Color :: Blue);
         }
-        if(powerupClock.getElapsedTime().asSeconds() >=5 )
+        if(powerupClock.getElapsedTime().asSeconds() >=100 )
         {
             powerupActive = false ; 
         //    cout<<"Removed power up ; ";
-            ghost_shape1.setFillColor(sf::Color::Red);
-             ghost_shape2.setFillColor(sf::Color :: Blue);
+             ghost_shape1.setFillColor(sf::Color::White);
+             ghost_shape2.setFillColor(sf::Color :: White);
+                ghost_shape3.setFillColor(sf::Color :: White);
+                ghost_shape4.setFillColor(sf::Color :: White);
         }
-        if( powerupActive   &&  pacman_x ==  ghost1.x && pacman_y == ghost1.y)
-        {
-            ghost1.x = 65;
-            ghost1.y = 38;
-            Score = Score + 10 ;
-
-        }
-        if(powerupActive &&  pacman_x == ghost2.x &&  pacman_y == ghost2.y)
-        {
-            ghost2.x = 65;
-            ghost2.y = 38;
-            Score = Score + 10 ;
-        }
-        movePacman();
+        
+        movePacman(pacman_texture);
         window.clear();
+        window.draw(background);
         drawGrid(window);
 
         // moveGhost(ghost1);
         pacman_shape.setPosition(pacman_x, pacman_y); // Update pacman position
         ghost_shape1.setPosition(ghost1.x, ghost1.y); // Update ghost position
         ghost_shape2.setPosition(ghost2.x, ghost2.y); // Update ghost position
+        ghost_shape3.setPosition(ghost3.x, ghost3.y); // Update ghost position
+        ghost_shape4.setPosition(ghost4.x, ghost4.y); // Update ghost position
         window.draw(pacman_shape);                    // Draw the player (yellow circle)
         window.draw(ghost_shape1);                    // Draw the ghost (red circle)
         window.draw(ghost_shape2);
+        window.draw(ghost_shape3);
+        window.draw(ghost_shape4);
         window.display();
         usleep(150000); // Sleep for 0.3 seconds
         if (closwindow == 1)
         {
             window.close();
         }
-        // cout<<"pacman_x: "<<pacman_x<<" pacman_y: "<<pacman_y<<endl;
+         //cout<<"pacman_x: "<<pacman_x<<" pacman_y: "<<pacman_y<<endl;
     }
 
     // Join threads
     pthread_join(userInputThread, nullptr);
     pthread_join(ghost1Thread, nullptr);
     pthread_join(ghost2Thread, nullptr);
-    // pthread_join(moveThread, nullptr);
-    //  Destroy mutexes
+    pthread_join(ghost3Thread, nullptr);
+    pthread_join(ghost4Thread, nullptr);
+    // Destroy mutexes
     pthread_mutex_destroy(&SharedmemMutex);
-    // pthread_mutex_destroy(&pacmanMutex);
+    pthread_mutex_destroy(&GameBoardMutex);
+    // Destroy semaphore
+    sem_destroy(&speedBoostSemaphore);
+    sem_destroy(&keySemaphore);
+    sem_destroy(&permitSemaphore);
 
     return 0;
 }
