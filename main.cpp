@@ -209,6 +209,30 @@ void drawGrid(sf::RenderWindow &window)
         }
     }
 }
+void checkwin(int gamemap[ROWS][COLS])
+{
+    int count = 0;
+    for (int i = 0; i < ROWS; i++)
+    {
+        for (int j = 0; j < COLS; j++)
+        {
+            if (gamemap[i][j] == 2)
+            {
+                count++;
+            }
+        }
+    }
+    if (count == 0)
+    {
+        cout << "YOU WIN" << endl;
+        cout << "SCORE: " << Score << endl;
+        cout << "LIVES: " << life << endl;
+        closwindow = 1;
+        // terminate all threads
+        
+        //exit(0);
+    }
+}
 
 // function to give speed boost to ghost
 void grantspeedboost()
@@ -876,9 +900,15 @@ int main()
         window.draw(ghost_shape3);
         window.draw(ghost_shape4);
         window.display();
+        checkwin(gameMap);
         usleep(150000); // Sleep for 0.3 seconds
         if (closwindow == 1)
         {
+            pthread_cancel(userInputThread);
+            pthread_cancel(ghost1Thread);
+            pthread_cancel(ghost2Thread);
+            pthread_cancel(ghost3Thread);
+            pthread_cancel(ghost4Thread);
             window.close();
         }
     }
