@@ -308,6 +308,7 @@ void leaveGhostHouse(GhostData* ghost)
     {
         ghost->hasKey = true;
         cout << "Ghost " << ghost->ghostID << " got a key." << endl;
+        usleep(1000000);
         // if key acquired, attempt to get permit
         if(sem_trywait(&permitSemaphore)==0)
         {
@@ -315,6 +316,7 @@ void leaveGhostHouse(GhostData* ghost)
             cout << "Ghost " << ghost->ghostID << " got an exit permit amd key." << endl;
             cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
             ghost->isActivated = true;
+            usleep(1000000);
             // release the semaphores
             sem_post(&permitSemaphore);
             sem_post(&keySemaphore);
@@ -337,6 +339,8 @@ void leaveGhostHouse(GhostData* ghost)
     {
         ghost->hasPermit = true;
         cout << "Ghost " << ghost->ghostID << " got an exit permit." << endl;
+        usleep(1000000);
+
         // if got exit permit attempt to get key
         if(sem_trywait(&keySemaphore)==0)
         {
@@ -344,6 +348,7 @@ void leaveGhostHouse(GhostData* ghost)
             cout << "Ghost " << ghost->ghostID << " got a key amd exit." << endl;
             cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
             ghost->isActivated = true;
+            usleep(1000000);
             // release the semaphores
             sem_post(&permitSemaphore);
             sem_post(&keySemaphore);
@@ -442,12 +447,12 @@ void *ghostController(void *arg)
         // attempt to leave the house
         if(ghost->isActivated==0)
         {
-            usleep(3000000);
+            //usleep(3000000);
             leaveGhostHouse(ghost);
             if(ghost->isActivated==0)
             {
                 // Ghost is still in the ghost house sleep for 3 seconds
-                cout<<ghost->ghostID<<" "<<endl<<endl;
+                cout<<ghost->ghostID<<"  is still in house"<<endl<<endl;
                 usleep(3000000);
             }
         }
