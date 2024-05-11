@@ -65,7 +65,8 @@ int gameMap[ROWS][COLS] = {0};
 // pacman x y cordinates 
 int pacman_x = CELL_SIZE + 25 / 8;
 int pacman_y = CELL_SIZE + 25 / 4;
-
+int powerupcount = 4;
+sf::Clock powercountclock;
 sf::Clock powerupClock ; 
 int totalScorePallet;
 int Score = 0;
@@ -751,6 +752,8 @@ void movePacman(sf::Texture &pacman_texture)
            {
             //cout << "Eaten power up ";
             powerupClock.restart();
+            powercountclock.restart();
+            powerupcount++;
             // make a new thread and let it sleep for 5 sec , then change the flag 
            }
         // maybe start a new thread for 5 seconds and then change the flag back to false ;
@@ -767,14 +770,14 @@ int main()
     intitializeGrid();
     int count = 0; // Counter for the number of positions initialized with 4
     // two random posiiton for red circle (power up value  = 4 )
-    while (count < 2)
+    while (powerupcount > 0)
     {
         int randRow = rand() % ROWS;
         int randCol = rand() % COLS;
-        if (gameMap[randRow][randCol] == 2)
+        if (valid(randCol, randRow) && gameMap[randRow][randCol] != 4)
         {
             gameMap[randRow][randCol] = 4;
-            count++;
+            powerupcount--;
         }
     }
 
@@ -856,6 +859,18 @@ int main()
     while (window.isOpen())
     {
         // Clear, draw, and display
+        while (powerupcount > 0 && powercountclock.getElapsedTime().asSeconds() >= 20)
+        {
+            int randRow = rand() % ROWS;
+            int randCol = rand() % COLS;
+            if (valid(randCol, randRow) && gameMap[randRow][randCol] != 4)
+            {   
+                gameMap[randRow][randCol] = 4;
+                powerupcount--;
+                powercountclock.restart();
+            }
+        }
+
 
         if(powerupActive )
         {
