@@ -836,7 +836,11 @@ int main()
     sf::CircleShape ghost_shape2(25 / 2);
     sf::CircleShape ghost_shape3(25 / 2);
     sf::CircleShape ghost_shape4(25 / 2);
-
+    sf::Texture livetexture; 
+    livetexture.loadFromFile("live.png");
+    sf::Sprite livesprite(livetexture) ; 
+    livesprite.setPosition(700,960);
+    livesprite.setScale(0.08, 0.08);
     sf::Texture ghost_texture1, ghost_texture2, ghost_texture3, ghost_texture4;
     ghost_texture1.loadFromFile("GhostRed.png");
     ghost_shape1.setTexture(&ghost_texture1);
@@ -953,6 +957,10 @@ int main()
         window.draw(ghost_shape2);
         window.draw(ghost_shape3);
         window.draw(ghost_shape4);
+        for(int kk = 0 ; kk<life ; kk++){
+            livesprite.setPosition(700+kk*30,960);
+        window.draw(livesprite);
+        }
         window.display();
         checkwin(gameMap);
         usleep(150000); // Sleep for 0.3 seconds
