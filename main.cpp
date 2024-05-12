@@ -151,7 +151,7 @@ void drawGrid(sf::RenderWindow &window)
     sf::CircleShape pelletShape(5);
     sf::CircleShape powerUpShape(5);
     sf::RectangleShape wallShape(sf::Vector2f(CELL_SIZE - 1, CELL_SIZE - 1)); // wall thickness = 1
-    sf::Color darkBlue(0, 0, 139);
+    sf::Color darkBlue(100,20,154);
     sf::Text scoreText;
     sf::Font font;
     sf::Text lifetext;
@@ -188,7 +188,7 @@ void drawGrid(sf::RenderWindow &window)
             case 1:
                 // Draw blue rectangle for wall
                 // Set fill color of wallShape to dark blue
-                wallShape.setFillColor(sf::Color::Black);
+                wallShape.setFillColor(darkBlue);
                 wallShape.setPosition(j * CELL_SIZE, i * CELL_SIZE);
                 window.draw(wallShape);
                 break;
@@ -824,7 +824,7 @@ int main()
     sf::RenderWindow window(sf::VideoMode(1000, 1000), "PHAK MAYN");
     // background image
     sf::Texture background_texture;
-    background_texture.loadFromFile("background.png");
+    background_texture.loadFromFile("Background.png");
     sf::Sprite background(background_texture);
     // Create the yellow circle (player)
     sf::CircleShape pacman_shape(25 / 2);
