@@ -397,8 +397,177 @@ void leaveGhostHousee(GhostData* ghost) {
     ghost->hasPermit = false;
 }
 */
+//function to find path for ghost
 
-// unction to reset all positions when pacman collide with ghost
+int findPath(pair<int,int> source, pair<int,int> dest)
+{
+   //perform bfs to find distance and return
+    int distance[ROWS][COLS];
+    for(int i=0;i<ROWS;i++)
+    {
+        for(int j=0;j<COLS;j++)
+        {
+            distance[i][j] = INT_MAX;
+        }
+    }
+    distance[source.first][source.second] = 0;
+    queue<pair<int,int>> q;
+    q.push(source);
+    while(!q.empty())
+    {
+        pair<int,int> current = q.front();
+        q.pop();
+        int x = current.first;
+        int y = current.second;
+        if(x == dest.first && y == dest.second)
+        {
+            return distance[x][y];
+        }
+        if(valid(x+1,y) && distance[x+1][y] == INT_MAX)
+        {
+            distance[x+1][y] = distance[x][y] + 1;
+            q.push(make_pair(x+1,y));
+        }
+        if(valid(x-1,y) && distance[x-1][y] == INT_MAX)
+        {
+            distance[x-1][y] = distance[x][y] + 1;
+            q.push(make_pair(x-1,y));
+        }
+        if(valid(x,y+1) && distance[x][y+1] == INT_MAX)
+        {
+            distance[x][y+1] = distance[x][y] + 1;
+            q.push(make_pair(x,y+1));
+        }
+        if(valid(x,y-1) && distance[x][y-1] == INT_MAX)
+        {
+            distance[x][y-1] = distance[x][y] + 1;
+            q.push(make_pair(x,y-1));
+        }
+    }
+    return distance[dest.first][dest.second];
+}
+//function to find the next move for ghost
+int findNextMove(pair<int,int> source, pair<int,int> dest)
+{
+    // call find path from all neighbors of source to dest
+    // return the direction of the neighbor with minimum distance
+    int minDistance = INT_MAX;
+    int direction = -1;
+    // Array to store the 4 possible directions
+    int dx[] = {0,0,-1,1};
+    int dy[] = {-1,1,0,0};
+    for(int i=0; i<4; i++)
+    {
+        int x = source.first + dx[i];
+        int y = source.second + dy[i];
+        // Check if the neighbor is valid
+        if(valid(x,y))
+        {
+            // Find the distance of the neighbor from the destination
+            int d = findPath(make_pair(x,y),dest);
+            // Update the minimum distance and direction
+            if(d != -1 && d < minDistance)
+            {
+                minDistance = d;
+                direction = i+1;
+            }
+        }
+    }
+    return direction;
+}
+//smart ghost controller
+void *smartGhostController(void *arg)
+{
+    GhostData *ghost = (GhostData *)arg;
+    while (true)
+    {
+        // Wait for all ghosts threads to be initialized
+        while(!start);
+        // attempt to leave the house
+        if(ghost->isActivated==0)
+        {
+            //usleep(3000000);
+            leaveGhostHouse(ghost);
+            if(ghost->isActivated==0)
+            {
+                // Ghost is still in the ghost house sleep for 3 seconds
+                cout<<ghost->ghostID<<"  is still in house"<<endl<<endl;
+                usleep(3000000);
+            }
+        }
+        // higher priority ghost wants the boost, push to the front of the list
+        if (ghost->pr == 1 && ghost->speed == 0 && ghost->speedClock.getElapsedTime().asSeconds() > 7)
+        {
+            ghost->speedClock.restart();
+            // Push the ghost back to the end of ghostlist
+            pthread_mutex_lock(&ghostlistMutex);
+            GhostData* temp = ghostlist.front();
+            ghostlist.pop_front();
+            ghostlist.push_front(ghost);
+            ghostlist.push_front(temp);
+            pthread_mutex_unlock(&ghostlistMutex);
+            updatespeedboost();
+            // Grant the speed boost
+            grantspeedboost();
+        }
+        else if (ghost->pr != 1 && ghost->speed == 0)   // lower priority want the boost always
+        {
+            // Grant the speed boost
+            grantspeedboost();
+        }
+        // Update the speed boost
+        updatespeedboost();
+        // collisions of pacman with ghost
+        pthread_mutex_lock(&PacmanPosMutex);
+        // powerup active
+            if (powerupActive && (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE))
+            {
+                //cout<<"Ghost caught pacman"<<endl;
+                // reset ghost position
+                ghost->x= 451;
+                ghost->y= 454;
+                ghost->isActivated = 0;
+            }
+            else if (!powerupActive && (pacman_x/CELL_SIZE) == ghost->x/CELL_SIZE && (pacman_y/CELL_SIZE) == ghost->y/CELL_SIZE)
+            {
+                // signal main to reset game.
+                reset = 1;
+                pthread_mutex_unlock(&PacmanPosMutex);
+                continue;
+            }
+        pthread_mutex_unlock(&PacmanPosMutex);
+        // Find the next move for the ghost
+        pthread_mutex_lock(&GameBoardMutex);
+        pthread_mutex_lock(&PacmanPosMutex);
+        int direction = findNextMove(make_pair(ghost->x/CELL_SIZE,ghost->y/CELL_SIZE),make_pair(pacman_x/CELL_SIZE,pacman_y/CELL_SIZE));
+        pthread_mutex_unlock(&PacmanPosMutex);
+        pthread_mutex_unlock(&GameBoardMutex);
+        // Update the direction of the ghost
+        ghost->direction = direction;
+        // Move the ghost in the direction
+        pthread_mutex_lock(&GameBoardMutex);
+        if (direction == 4 && valid((ghost->x + CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE))
+        {
+            ghost->x += CELL_SIZE;
+        }
+        else if (direction == 3 && valid((ghost->x - CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE))
+        {
+            ghost->x -= CELL_SIZE;
+        }
+        else if (direction == 2 && valid(ghost->x / CELL_SIZE, (ghost->y + CELL_SIZE) / CELL_SIZE))
+        {
+            ghost->y += CELL_SIZE;
+        }
+        else if (direction == 1 && valid(ghost->x / CELL_SIZE, (ghost->y - CELL_SIZE) / CELL_SIZE))
+        {
+            ghost->y -= CELL_SIZE;
+        }
+        pthread_mutex_unlock(&GameBoardMutex);
+        // Sleep for 0.5 seconds
+        usleep(300000);
+    }
+}
+// Function to reset all positions when pacman collide with ghost
 void resetGame(GhostData& ghost1, GhostData& ghost2, GhostData& ghost3, GhostData& ghost4)
 {
     // Reset the game
@@ -911,7 +1080,7 @@ int main()
     pthread_create(&ghost1Thread, nullptr, ghostController, &ghost1);
     pthread_create(&ghost2Thread, nullptr, ghostController, &ghost2);
     pthread_create(&ghost3Thread, nullptr, ghostController, &ghost3);
-    pthread_create(&ghost4Thread, nullptr, ghostController, &ghost4);
+    pthread_create(&ghost4Thread, nullptr, smartGhostController, &ghost4);
     start = true;
     // Main loop
     while (window.isOpen())
