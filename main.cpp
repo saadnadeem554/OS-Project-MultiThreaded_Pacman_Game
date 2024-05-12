@@ -150,6 +150,12 @@ void drawGrid(sf::RenderWindow &window)
 {
     sf::CircleShape pelletShape(5);
     sf::CircleShape powerUpShape(5);
+     //sf::CircleShape p()
+    sf::Texture palletTexture ; 
+    palletTexture.loadFromFile("cherry.png");
+    sf::Sprite palletSprite(palletTexture); 
+    palletSprite.setScale(0.6,0.6);
+    
     sf::RectangleShape wallShape(sf::Vector2f(CELL_SIZE - 1, CELL_SIZE - 1)); // wall thickness = 1
     sf::Color darkBlue(0, 0, 139);
     sf::Text scoreText;
@@ -200,9 +206,11 @@ void drawGrid(sf::RenderWindow &window)
                 break;
             case 4:
                 //  Draw red powerup // change with texture later
-                powerUpShape.setFillColor(sf::Color::Red);
-                powerUpShape.setPosition(j * CELL_SIZE + CELL_SIZE / 2 - 5, i * CELL_SIZE + CELL_SIZE / 2 - 5);
-                window.draw(powerUpShape);
+               // powerUpShape.setFillColor(sf::Color::Red);
+               // powerUpShape.setPosition(j * CELL_SIZE + CELL_SIZE / 2 - 5, i * CELL_SIZE + CELL_SIZE / 2 - 5);
+               // window.draw(powerUpShape);
+                palletSprite.setPosition(j * CELL_SIZE + CELL_SIZE / 2 - 5, i * CELL_SIZE + CELL_SIZE / 2 - 5);
+                window.draw(palletSprite);
                 break;
             }
             // unlock mutex
@@ -888,7 +896,7 @@ int main()
             ghost_texture3.loadFromFile("ghostscared.png");
             ghost_texture4.loadFromFile("ghostscared.png");
         }
-        if(powerupClock.getElapsedTime().asSeconds() >=100 )
+        if(powerupClock.getElapsedTime().asSeconds() >=10 )
         {
             powerupActive = false ; 
         //    cout<<"Removed power up ; ";
