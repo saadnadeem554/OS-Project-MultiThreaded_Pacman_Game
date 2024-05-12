@@ -213,6 +213,8 @@ void drawGrid(sf::RenderWindow &window)
                 window.draw(palletSprite);
                 break;
             }
+
+            
             // unlock mutex
             pthread_mutex_unlock(&GameBoardMutex);
         }
@@ -844,6 +846,11 @@ int main()
     sf::CircleShape ghost_shape2(25 / 2);
     sf::CircleShape ghost_shape3(25 / 2);
     sf::CircleShape ghost_shape4(25 / 2);
+    sf::Texture palletFeatureTexture;
+    palletFeatureTexture.loadFromFile("cherry.png");
+    sf::Sprite palletFeatSprite(palletFeatureTexture) ; 
+ 
+
     sf::Texture livetexture; 
     livetexture.loadFromFile("live.png");
     sf::Sprite livesprite(livetexture) ; 
@@ -969,6 +976,12 @@ int main()
             livesprite.setPosition(700+kk*30,960);
         window.draw(livesprite);
         }
+        for(int i =  powerupcount ; i < 4  ; i++ )
+        {
+            palletFeatSprite.setPosition(150+i*30, 960);
+             window.draw(palletFeatSprite);
+        }
+      
         window.display();
         checkwin(gameMap);
         usleep(150000); // Sleep for 0.3 seconds
