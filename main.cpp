@@ -680,116 +680,155 @@ void *ghostController(void *arg)
             }
         pthread_mutex_unlock(&PacmanPosMutex);
         
-        int directionX = 0;
-        int directionY = 0;
-
-        bool chosen = false;
-        pthread_mutex_lock(&GameBoardMutex);
-            if (ghost->direction == 1 || ghost->direction == 2)
-            { // Up or down
-                // Randomly choose left or right
-                    if (valid((ghost->x + CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE) && rand() % 2 == 0)
-                    {
-                        directionX = 1;
-                        chosen = true;
-                        ghost->direction = 4;
-                    }
-                    else if (valid((ghost->x - CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE) && rand() % 2 == 0)
-                    {
-
-                        directionX = -1;
-                        chosen = true;
-                        ghost->direction = 3;
-                    }
-            }
-            else if (ghost->direction == 3 || ghost->direction == 4)
-            { // Left or right
-            // Randomly choose up or down
-                if (valid(ghost->x / CELL_SIZE, (ghost->y + CELL_SIZE) / CELL_SIZE) && rand() % 2 ==0)
-                {   
-                    directionY = 1;
-                    chosen = true;
-                    ghost->direction = 2;                       
-                }
         
-                else if (valid(ghost->x / CELL_SIZE, (ghost->y - CELL_SIZE) / CELL_SIZE)&& rand() % 2 ==0)
-                {
-
-                    directionY = -1;
-                    chosen = true;
-                    ghost->direction = 1;   
-                }     
-            }
-        pthread_mutex_unlock(&GameBoardMutex);
-        if (!chosen)
+        if((ghost->ghostID == 2 || ghost->ghostID == 3) && !powerupActive)
         {
-            // Continue in current direction
-            if (ghost->direction == 1)
-            {
-                directionY = -1;
-            }
-            else if (ghost->direction == 2)
-            {
-                directionY = 1;
-            }
-            else if (ghost->direction == 3)
-            {
-                directionX = -1;
-            }
-            else
-            {
-                directionX = 1;
-            }
-        }
+            // execute smart ghost movement
 
-        int nextX = ghost->x + directionX * CELL_SIZE;
-        int nextY = ghost->y + directionY * CELL_SIZE;
-
-        // Check for collisions with walls
-        pthread_mutex_lock(&GameBoardMutex);
-        if (valid(nextX / CELL_SIZE, nextY / CELL_SIZE))
-        {
-            ghost->x += directionX * CELL_SIZE;
-            ghost->y += directionY * CELL_SIZE;
-            //cout<<ghost->x/CELL_SIZE<<" "<< ghost->y/CELL_SIZE<<endl; 
+            // Find the next move for the ghost
+            pthread_mutex_lock(&GameBoardMutex);
+            pthread_mutex_lock(&PacmanPosMutex);
+            int direction = findNextMove(make_pair(ghost->x/CELL_SIZE,ghost->y/CELL_SIZE),make_pair(pacman_x/CELL_SIZE,pacman_y/CELL_SIZE));
+            pthread_mutex_unlock(&PacmanPosMutex);
+            pthread_mutex_unlock(&GameBoardMutex);
+            // Update the direction of the ghost
+            ghost->direction = direction;
+            // Move the ghost in the direction
+            pthread_mutex_lock(&GameBoardMutex);
+            if (direction == 4 && valid((ghost->x + CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE))
+            {
+                ghost->x += CELL_SIZE;
+            }
+            else if (direction == 3 && valid((ghost->x - CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE))
+            {
+                ghost->x -= CELL_SIZE;
+            }
+            else if (direction == 2 && valid(ghost->x / CELL_SIZE, (ghost->y + CELL_SIZE) / CELL_SIZE))
+            {
+                ghost->y += CELL_SIZE;
+            }
+            else if (direction == 1 && valid(ghost->x / CELL_SIZE, (ghost->y - CELL_SIZE) / CELL_SIZE))
+            {
+                ghost->y -= CELL_SIZE;
+            }
+            pthread_mutex_unlock(&GameBoardMutex);
+            // Sleep for 0.5 seconds
+            usleep(300000);
         }
         else
         {
-            // move ghost in opposite direction
-            //cout<<"walled";
-            if (ghost->direction == 1)
+            // execute dumb ghost movement
+            
+            int directionX = 0;
+            int directionY = 0;
+
+            bool chosen = false;
+            pthread_mutex_lock(&GameBoardMutex);
+                if (ghost->direction == 1 || ghost->direction == 2)
+                { // Up or down
+                    // Randomly choose left or right
+                        if (valid((ghost->x + CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE) && rand() % 2 == 0)
+                        {
+                            directionX = 1;
+                            chosen = true;
+                            ghost->direction = 4;
+                        }
+                        else if (valid((ghost->x - CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE) && rand() % 2 == 0)
+                        {
+
+                            directionX = -1;
+                            chosen = true;
+                            ghost->direction = 3;
+                        }
+                }
+                else if (ghost->direction == 3 || ghost->direction == 4)
+                { // Left or right
+                // Randomly choose up or down
+                    if (valid(ghost->x / CELL_SIZE, (ghost->y + CELL_SIZE) / CELL_SIZE) && rand() % 2 ==0)
+                    {   
+                        directionY = 1;
+                        chosen = true;
+                        ghost->direction = 2;                       
+                    }
+            
+                    else if (valid(ghost->x / CELL_SIZE, (ghost->y - CELL_SIZE) / CELL_SIZE)&& rand() % 2 ==0)
+                    {
+
+                        directionY = -1;
+                        chosen = true;
+                        ghost->direction = 1;   
+                    }     
+                }
+            pthread_mutex_unlock(&GameBoardMutex);
+            if (!chosen)
             {
-                ghost->direction = 2;
-                directionY = 1 ; 
-                ghost->x += directionX * CELL_SIZE;
-                ghost->y += directionY * CELL_SIZE;
+                // Continue in current direction
+                if (ghost->direction == 1)
+                {
+                    directionY = -1;
+                }
+                else if (ghost->direction == 2)
+                {
+                    directionY = 1;
+                }
+                else if (ghost->direction == 3)
+                {
+                    directionX = -1;
+                }
+                else
+                {
+                    directionX = 1;
+                }
             }
-            else if (ghost->direction == 2)
+
+            int nextX = ghost->x + directionX * CELL_SIZE;
+            int nextY = ghost->y + directionY * CELL_SIZE;
+
+            // Check for collisions with walls
+            pthread_mutex_lock(&GameBoardMutex);
+            if (valid(nextX / CELL_SIZE, nextY / CELL_SIZE))
             {
-                ghost->direction = 1;
-                directionY =-1 ; 
                 ghost->x += directionX * CELL_SIZE;
                 ghost->y += directionY * CELL_SIZE;
-            }
-            else if (ghost->direction == 3)
-            {
-                ghost->direction = 4;
-                directionX = 1 ; 
-                ghost->x += directionX * CELL_SIZE;
-                ghost->y += directionY * CELL_SIZE;
+                //cout<<ghost->x/CELL_SIZE<<" "<< ghost->y/CELL_SIZE<<endl; 
             }
             else
             {
-                ghost->direction = 3;
-                directionX = -1 ; 
-                ghost->x += directionX * CELL_SIZE;
-                ghost->y += directionY * CELL_SIZE;
+                // move ghost in opposite direction
+                //cout<<"walled";
+                if (ghost->direction == 1)
+                {
+                    ghost->direction = 2;
+                    directionY = 1 ; 
+                    ghost->x += directionX * CELL_SIZE;
+                    ghost->y += directionY * CELL_SIZE;
+                }
+                else if (ghost->direction == 2)
+                {
+                    ghost->direction = 1;
+                    directionY =-1 ; 
+                    ghost->x += directionX * CELL_SIZE;
+                    ghost->y += directionY * CELL_SIZE;
+                }
+                else if (ghost->direction == 3)
+                {
+                    ghost->direction = 4;
+                    directionX = 1 ; 
+                    ghost->x += directionX * CELL_SIZE;
+                    ghost->y += directionY * CELL_SIZE;
+                }
+                else
+                {
+                    ghost->direction = 3;
+                    directionX = -1 ; 
+                    ghost->x += directionX * CELL_SIZE;
+                    ghost->y += directionY * CELL_SIZE;
+                }
+                //sleep(1);
+                //cout<<ghost->x/CELL_SIZE<<" "<< ghost->y/CELL_SIZE<<endl; 
             }
-            //sleep(1);
-            //cout<<ghost->x/CELL_SIZE<<" "<< ghost->y/CELL_SIZE<<endl; 
+            pthread_mutex_unlock(&GameBoardMutex);
         }
-        pthread_mutex_unlock(&GameBoardMutex);
-
 
         pthread_mutex_lock(&PacmanPosMutex);
             if (powerupActive && (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE))
@@ -815,11 +854,15 @@ void *ghostController(void *arg)
         {
             pthread_exit(NULL);
         }
-        // Sleep for a short duration to control the speed of the ghost
+        // Sleep to control the speed of the ghost
         if(ghost->speed==0)
-        usleep(200000); // Adjust the sleep duration as needed
+        usleep(200000);         // unbosted ghost speed
+        else if (ghost->speed == 1 && ghost->ghostID == 2 || ghost->ghostID == 3)
+        {
+            usleep(150000);     // smart ghost speed(not super fast otherwise it will be impossible to win)
+        }
         else
-        usleep(100000);
+        usleep(100000);         // dumb ghost speed
     }
     pthread_exit(NULL);
 }
@@ -828,10 +871,6 @@ void *ghostController(void *arg)
 void *userInput(void *arg)
 {
     sf::RenderWindow *window = (sf::RenderWindow *)arg;
-    // display menu image
-
-
-    
     while (window->isOpen())
     {
         Event event;
@@ -1080,7 +1119,7 @@ int main()
     pthread_create(&ghost1Thread, nullptr, ghostController, &ghost1);
     pthread_create(&ghost2Thread, nullptr, ghostController, &ghost2);
     pthread_create(&ghost3Thread, nullptr, ghostController, &ghost3);
-    pthread_create(&ghost4Thread, nullptr, smartGhostController, &ghost4);
+    pthread_create(&ghost4Thread, nullptr, ghostController, &ghost4);
     start = true;
     // Main loop
     while (window.isOpen())
