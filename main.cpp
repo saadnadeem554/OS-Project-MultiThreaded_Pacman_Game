@@ -657,6 +657,10 @@ void *ghostController(void *arg)
 void *userInput(void *arg)
 {
     sf::RenderWindow *window = (sf::RenderWindow *)arg;
+    // display menu image
+
+
+    
     while (window->isOpen())
     {
         Event event;
@@ -777,6 +781,7 @@ void movePacman(sf::Texture &pacman_texture)
 int main()
 {
 
+
     //  Initialize random seed
     srand(time(nullptr));
     // Initialize game board
@@ -794,7 +799,36 @@ int main()
         }
     }
 
+    sf::RenderWindow windoww(sf::VideoMode(477, 661), "PHAK MAYN");
     //  Create SFML window
+    sf::Texture menu_texture;
+    menu_texture.loadFromFile("Menu.png");
+    sf::Sprite menu(menu_texture);
+    // set position of menu in the middle of the screen
+    // dispplay menu
+    windoww.draw(menu);
+    windoww.display();
+    // wait for any key press
+    while (windoww.isOpen())
+    {
+        Event event;
+        while (windoww.pollEvent(event))
+        {
+            if (event.type == Event::Closed)
+            {
+
+                // signal main to close window
+                windoww.close();
+                exit(0);
+
+            }
+            else if (event.type == Event::KeyPressed)
+            {
+                if(event.key.code == Keyboard::Enter)
+                    windoww.close();
+            }
+        }
+    }
     sf::RenderWindow window(sf::VideoMode(1000, 1000), "PHAK MAYN");
     // background image
     sf::Texture background_texture;
