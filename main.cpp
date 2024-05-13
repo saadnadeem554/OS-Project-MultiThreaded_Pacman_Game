@@ -95,8 +95,9 @@ struct GhostData
     bool hasKey=0;
     bool hasPermit=0;
     bool isActivated=0;
-    int pr = 0;
+    int pr = 0; // ghost priority
 };
+
 // Mutex to protect user input
 pthread_mutex_t SharedmemMutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -205,21 +206,17 @@ void drawGrid(sf::RenderWindow &window)
                 window.draw(wallShape);
                 break;
             case 4:
-                //  Draw red powerup // change with texture later
-               // powerUpShape.setFillColor(sf::Color::Red);
-               // powerUpShape.setPosition(j * CELL_SIZE + CELL_SIZE / 2 - 5, i * CELL_SIZE + CELL_SIZE / 2 - 5);
-               // window.draw(powerUpShape);
                 palletSprite.setPosition(j * CELL_SIZE + CELL_SIZE / 2 - 5, i * CELL_SIZE + CELL_SIZE / 2 - 5);
                 window.draw(palletSprite);
                 break;
             }
-
-            
             // unlock mutex
             pthread_mutex_unlock(&GameBoardMutex);
         }
     }
 }
+
+// function to check if pacman wins
 void checkwin(int gamemap[ROWS][COLS])
 {
     int count = 0;
@@ -240,9 +237,7 @@ void checkwin(int gamemap[ROWS][COLS])
         cout << "LIVES: " << life << endl;
         closwindow = 1;
         // terminate all threads
-        
-        //exit(0);
-    }
+        }
 }
 
 // function to give speed boost to ghost
@@ -282,7 +277,7 @@ void updatespeedboost()
             //cout << "Speed boost removed from ghost " << ghost->ghostID << endl;
             // Pop the first ghost from the list
             ghostlist.pop_front();
-            // If ghost priority is high, push it to the back
+            // If ghost priority is not high, push it to the back
             if (ghost->pr > 1)
             {
                 ghostlist.push_back(ghost);
@@ -342,9 +337,7 @@ void leaveGhostHouse(GhostData* ghost)
         }
     }
     
-    
-
-    // Attempt to acquire an exit permit
+    // if didnt get key, Attempt to acquire an exit permit
     if(sem_trywait(&permitSemaphore)==0)
     {
         ghost->hasPermit = true;
@@ -374,6 +367,9 @@ void leaveGhostHouse(GhostData* ghost)
         }
     }
 }
+
+        // leave this function commented out might need it in demo
+
 /*
 void leaveGhostHousee(GhostData* ghost) {
     // Attempt to acquire a key
@@ -397,8 +393,8 @@ void leaveGhostHousee(GhostData* ghost) {
     ghost->hasPermit = false;
 }
 */
-//function to find path for ghost
 
+//function to find path for ghost
 int findPath(pair<int,int> source, pair<int,int> dest)
 {
    //perform bfs to find distance and return
@@ -475,98 +471,6 @@ int findNextMove(pair<int,int> source, pair<int,int> dest)
     }
     return direction;
 }
-//smart ghost controller
-void *smartGhostController(void *arg)
-{
-    GhostData *ghost = (GhostData *)arg;
-    while (true)
-    {
-        // Wait for all ghosts threads to be initialized
-        while(!start);
-        // attempt to leave the house
-        if(ghost->isActivated==0)
-        {
-            //usleep(3000000);
-            leaveGhostHouse(ghost);
-            if(ghost->isActivated==0)
-            {
-                // Ghost is still in the ghost house sleep for 3 seconds
-                cout<<ghost->ghostID<<"  is still in house"<<endl<<endl;
-                usleep(3000000);
-            }
-        }
-        // higher priority ghost wants the boost, push to the front of the list
-        if (ghost->pr == 1 && ghost->speed == 0 && ghost->speedClock.getElapsedTime().asSeconds() > 7)
-        {
-            ghost->speedClock.restart();
-            // Push the ghost back to the end of ghostlist
-            pthread_mutex_lock(&ghostlistMutex);
-            GhostData* temp = ghostlist.front();
-            ghostlist.pop_front();
-            ghostlist.push_front(ghost);
-            ghostlist.push_front(temp);
-            pthread_mutex_unlock(&ghostlistMutex);
-            updatespeedboost();
-            // Grant the speed boost
-            grantspeedboost();
-        }
-        else if (ghost->pr != 1 && ghost->speed == 0)   // lower priority want the boost always
-        {
-            // Grant the speed boost
-            grantspeedboost();
-        }
-        // Update the speed boost
-        updatespeedboost();
-        // collisions of pacman with ghost
-        pthread_mutex_lock(&PacmanPosMutex);
-        // powerup active
-            if (powerupActive && (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE))
-            {
-                //cout<<"Ghost caught pacman"<<endl;
-                // reset ghost position
-                ghost->x= 451;
-                ghost->y= 454;
-                ghost->isActivated = 0;
-            }
-            else if (!powerupActive && (pacman_x/CELL_SIZE) == ghost->x/CELL_SIZE && (pacman_y/CELL_SIZE) == ghost->y/CELL_SIZE)
-            {
-                // signal main to reset game.
-                reset = 1;
-                pthread_mutex_unlock(&PacmanPosMutex);
-                continue;
-            }
-        pthread_mutex_unlock(&PacmanPosMutex);
-        // Find the next move for the ghost
-        pthread_mutex_lock(&GameBoardMutex);
-        pthread_mutex_lock(&PacmanPosMutex);
-        int direction = findNextMove(make_pair(ghost->x/CELL_SIZE,ghost->y/CELL_SIZE),make_pair(pacman_x/CELL_SIZE,pacman_y/CELL_SIZE));
-        pthread_mutex_unlock(&PacmanPosMutex);
-        pthread_mutex_unlock(&GameBoardMutex);
-        // Update the direction of the ghost
-        ghost->direction = direction;
-        // Move the ghost in the direction
-        pthread_mutex_lock(&GameBoardMutex);
-        if (direction == 4 && valid((ghost->x + CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE))
-        {
-            ghost->x += CELL_SIZE;
-        }
-        else if (direction == 3 && valid((ghost->x - CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE))
-        {
-            ghost->x -= CELL_SIZE;
-        }
-        else if (direction == 2 && valid(ghost->x / CELL_SIZE, (ghost->y + CELL_SIZE) / CELL_SIZE))
-        {
-            ghost->y += CELL_SIZE;
-        }
-        else if (direction == 1 && valid(ghost->x / CELL_SIZE, (ghost->y - CELL_SIZE) / CELL_SIZE))
-        {
-            ghost->y -= CELL_SIZE;
-        }
-        pthread_mutex_unlock(&GameBoardMutex);
-        // Sleep for 0.5 seconds
-        usleep(300000);
-    }
-}
 // Function to reset all positions when pacman collide with ghost
 void resetGame(GhostData& ghost1, GhostData& ghost2, GhostData& ghost3, GhostData& ghost4)
 {
@@ -624,7 +528,7 @@ void *ghostController(void *arg)
         while(!start);
         
         // attempt to leave the house
-        if(ghost->isActivated==0)
+        while(ghost->isActivated==0)
         {
             //usleep(3000000);
             leaveGhostHouse(ghost);
@@ -796,28 +700,28 @@ void *ghostController(void *arg)
             {
                 // move ghost in opposite direction
                 //cout<<"walled";
-                if (ghost->direction == 1)
+                if (ghost->direction == 1 && valid(ghost->x / CELL_SIZE, (ghost->y + CELL_SIZE) / CELL_SIZE))
                 {
                     ghost->direction = 2;
                     directionY = 1 ; 
                     ghost->x += directionX * CELL_SIZE;
                     ghost->y += directionY * CELL_SIZE;
                 }
-                else if (ghost->direction == 2)
+                else if (ghost->direction == 2 && valid(ghost->x / CELL_SIZE, (ghost->y - CELL_SIZE) / CELL_SIZE))
                 {
                     ghost->direction = 1;
                     directionY =-1 ; 
                     ghost->x += directionX * CELL_SIZE;
                     ghost->y += directionY * CELL_SIZE;
                 }
-                else if (ghost->direction == 3)
+                else if (ghost->direction == 3 && valid((ghost->x + CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE))
                 {
                     ghost->direction = 4;
                     directionX = 1 ; 
                     ghost->x += directionX * CELL_SIZE;
                     ghost->y += directionY * CELL_SIZE;
                 }
-                else
+                else if (ghost->direction == 4 && valid((ghost->x - CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE))
                 {
                     ghost->direction = 3;
                     directionX = -1 ; 
@@ -1012,6 +916,7 @@ void movePacman(sf::Texture &pacman_texture)
                 // signal main to reset game.
                 reset = 1;
                 pthread_mutex_unlock(&GameBoardMutex);
+                pthread_mutex_unlock(&PacmanPosMutex);
                 return;
             }
         }
