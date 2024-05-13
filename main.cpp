@@ -912,7 +912,8 @@ void *userInput(void *arg)
     }
     pthread_exit(NULL);
 }
-
+// array of ghosts
+GhostData ghosts[4];
 void movePacman(sf::Texture &pacman_texture)
 {
     int pacman_direction_x = 0;
@@ -984,14 +985,45 @@ void movePacman(sf::Texture &pacman_texture)
             // make a new thread and let it sleep for 5 sec , then change the flag 
            }
         // maybe start a new thread for 5 seconds and then change the flag back to false ;
-    }    
+    }
+    // ghost collision detection with all ghosts 1 2 3 4
+
+    pthread_mutex_lock(&PacmanPosMutex);
+    if (powerupActive)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            if (ghosts[i].x / CELL_SIZE == pacman_x / CELL_SIZE && ghosts[i].y / CELL_SIZE == pacman_y / CELL_SIZE)
+            {
+                //cout << "Ghost caught pacman" << endl;
+                // reset ghost position
+                ghosts[i].x = 451;
+                ghosts[i].y = 454;
+                ghosts[i].isActivated = 0;
+            }
+        }
+    }
+    else
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            if (ghosts[i].x / CELL_SIZE == pacman_x / CELL_SIZE && ghosts[i].y / CELL_SIZE == pacman_y / CELL_SIZE)
+            {
+                // signal main to reset game.
+                reset = 1;
+                pthread_mutex_unlock(&GameBoardMutex);
+                return;
+            }
+        }
+    }
     pthread_mutex_unlock(&GameBoardMutex);
+    pthread_mutex_unlock(&PacmanPosMutex);
 }
+
+
 
 int main()
 {
-
-
     //  Initialize random seed
     srand(time(nullptr));
     // Initialize game board
@@ -1074,12 +1106,6 @@ int main()
     ghost_texture4.loadFromFile("GhostYellow.png");
     ghost_shape4.setTexture(&ghost_texture4);    
     pacman_shape.setPosition(25 / 8, 25 / 4); // Set initial position to (100, 50)
-    // set ghost position to (10, 10)
-    ghost_shape1.setPosition(65, 38);
-    ghost_shape2.setPosition(65, 38);
-    ghost_shape3.setPosition(65, 38);
-    ghost_shape4.setPosition(65, 38);
-
     
     // Initialize semaphore for speed boost
     sem_init(&speedBoostSemaphore, 0, 2); // Initialize with 2 speed boosts available
@@ -1093,22 +1119,26 @@ int main()
     pthread_create(&userInputThread, nullptr, userInput, &window);
 
     // Initialize ghosts' data
-    GhostData ghost1 = {355, 454}; // Example initial position
-    GhostData ghost2 = {387, 454};  // Example initial position
-    GhostData ghost3 = {451, 454}; // Example initial position
-    GhostData ghost4 = {483, 454};  // Example initial position
-    ghost1.ghostID = 1;
-    ghost2.ghostID = 2;
-    ghost3.ghostID = 3;
-    ghost4.ghostID = 4;
-    ghost1.pr = 1;
-    ghost2.pr = 2;
-    ghost3.pr = 3;
-    ghost4.pr = 1;
+    ghosts[0].x = 355;
+    ghosts[0].y = 454;
+    ghosts[1].x = 387;  
+    ghosts[1].y = 454;
+    ghosts[2].x = 451;
+    ghosts[2].y = 454;
+    ghosts[3].x = 483;
+    ghosts[3].y = 454;
+    ghosts[0].ghostID = 1;
+    ghosts[1].ghostID = 2;
+    ghosts[2].ghostID = 3;
+    ghosts[3].ghostID = 4;
+    ghosts[0].pr = 1;
+    ghosts[1].pr = 2;
+    ghosts[2].pr = 3;
+    ghosts[3].pr = 1;
 
     // push the low priority ghosts in the ghostlist
-    ghostlist.push_back(&ghost2);
-    ghostlist.push_back(&ghost3);
+    ghostlist.push_back(&ghosts[1]);
+    ghostlist.push_back(&ghosts[2]);
    
     // Create threads for ghost controllers
     pthread_t ghost1Thread;
@@ -1116,10 +1146,10 @@ int main()
     pthread_t ghost3Thread;
     pthread_t ghost4Thread;
 
-    pthread_create(&ghost1Thread, nullptr, ghostController, &ghost1);
-    pthread_create(&ghost2Thread, nullptr, ghostController, &ghost2);
-    pthread_create(&ghost3Thread, nullptr, ghostController, &ghost3);
-    pthread_create(&ghost4Thread, nullptr, ghostController, &ghost4);
+    pthread_create(&ghost1Thread, nullptr, ghostController, &ghosts[0]);
+    pthread_create(&ghost2Thread, nullptr, ghostController, &ghosts[1]);
+    pthread_create(&ghost3Thread, nullptr, ghostController, &ghosts[2]);
+    pthread_create(&ghost4Thread, nullptr, ghostController, &ghosts[3]);
     start = true;
     // Main loop
     while (window.isOpen())
@@ -1163,7 +1193,7 @@ int main()
         {
             start = 0;
             life--;
-            resetGame(ghost1,ghost2,ghost3,ghost4);
+            resetGame(ghosts[0],ghosts[1],ghosts[2],ghosts[3]);
         }
 
         // draw the game
@@ -1171,10 +1201,10 @@ int main()
         window.draw(background);
         drawGrid(window);
         pacman_shape.setPosition(pacman_x, pacman_y); // Update pacman position
-        ghost_shape1.setPosition(ghost1.x, ghost1.y); // Update ghost position
-        ghost_shape2.setPosition(ghost2.x, ghost2.y); // Update ghost position
-        ghost_shape3.setPosition(ghost3.x, ghost3.y); // Update ghost position
-        ghost_shape4.setPosition(ghost4.x, ghost4.y); // Update ghost position
+        ghost_shape1.setPosition(ghosts[0].x, ghosts[0].y); // Update ghost position
+        ghost_shape2.setPosition(ghosts[1].x, ghosts[1].y); // Update ghost position
+        ghost_shape3.setPosition(ghosts[2].x, ghosts[2].y); // Update ghost position
+        ghost_shape4.setPosition(ghosts[3].x, ghosts[3].y); // Update ghost position
         window.draw(pacman_shape);                    
         window.draw(ghost_shape1);                    
         window.draw(ghost_shape2);
