@@ -5,7 +5,7 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/System.hpp>
 #include <SFML/Window.hpp>
-#include<SFML/Audio.hpp>
+#include <SFML/Audio.hpp>
 #include <unistd.h>
 #include <iostream>
 #include <cstdlib>
@@ -27,10 +27,10 @@ using namespace sf;
 #define ROWS 30
 #define COLS 30
 #define CELL_SIZE 32 // Size of each cell in pixels
- sf::Music musicEat;
+sf::Music musicEat;
 sf::Music musicmenu;
-sf ::Music musicMunch ;  
-sf ::Music musicReset ;  
+sf ::Music musicMunch;
+sf ::Music musicReset;
 // skeleton game map
 int gameMapSkeleton[ROWS][COLS] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -66,19 +66,19 @@ int gameMapSkeleton[ROWS][COLS] = {
 };
 // game map
 int gameMap[ROWS][COLS] = {0};
-// pacman x y cordinates 
+// pacman x y cordinates
 int pacman_x = CELL_SIZE + 25 / 8;
 int pacman_y = CELL_SIZE + 25 / 4;
 int powerupcount = 4;
 sf::Clock powercountclock;
-sf::Clock powerupClock ; 
+sf::Clock powerupClock;
 int totalScorePallet;
 int Score = 0;
 bool powerupActive = false;
 int life = 3;
 bool start = false;
 bool reset = false;
-
+bool gamewon = 0;
 // shared memory of user direcion
 struct shared
 {
@@ -96,9 +96,9 @@ struct GhostData
     int speed = 0;
     // add a clock to keep track of time of speed
     sf::Clock speedClock;
-    bool hasKey=0;
-    bool hasPermit=0;
-    bool isActivated=0;
+    bool hasKey = 0;
+    bool hasPermit = 0;
+    bool isActivated = 0;
     int pr = 0; // ghost priority
 };
 
@@ -118,7 +118,7 @@ sem_t permitSemaphore;
 // Semaphore for speed boost
 sem_t speedBoostSemaphore;
 // Declare list of pointers to GhostData
-std::list<GhostData*> ghostlist; 
+std::list<GhostData *> ghostlist;
 // add a mutex to protect the ghost list
 pthread_mutex_t ghostlistMutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -155,14 +155,14 @@ void drawGrid(sf::RenderWindow &window)
 {
     sf::CircleShape pelletShape(5);
     sf::CircleShape powerUpShape(5);
-     //sf::CircleShape p()
-    sf::Texture palletTexture ; 
+    // sf::CircleShape p()
+    sf::Texture palletTexture;
     palletTexture.loadFromFile("cherry.png");
-    sf::Sprite palletSprite(palletTexture); 
-    palletSprite.setScale(0.6,0.6);
-    
+    sf::Sprite palletSprite(palletTexture);
+    palletSprite.setScale(0.6, 0.6);
+
     sf::RectangleShape wallShape(sf::Vector2f(CELL_SIZE - 1, CELL_SIZE - 1)); // wall thickness = 1
-    sf::Color darkBlue(100,20,154);
+    sf::Color darkBlue(100, 20, 154);
     sf::Text scoreText;
     sf::Font font;
     sf::Text lifetext;
@@ -221,7 +221,7 @@ void drawGrid(sf::RenderWindow &window)
 }
 
 // function to check if pacman wins
-void checkwin(int gamemap[ROWS][COLS])
+void checkwin(int gamemap[ROWS][COLS], RenderWindow &window)
 {
     int count = 0;
     for (int i = 0; i < ROWS; i++)
@@ -236,28 +236,30 @@ void checkwin(int gamemap[ROWS][COLS])
     }
     if (count == 0)
     {
+        // draw a sfml text on the middle of screen
         cout << "YOU WIN" << endl;
         cout << "SCORE: " << Score << endl;
         cout << "LIVES: " << life << endl;
         closwindow = 1;
+        gamewon = true;
         // terminate all threads
-        }
+    }
 }
 
 // function to give speed boost to ghost
 void grantspeedboost()
 {
     // Try to acquire the speed boost semaphore
-    if (sem_trywait(&speedBoostSemaphore) == 0) 
+    if (sem_trywait(&speedBoostSemaphore) == 0)
     {
         // Get a pointer to the first ghost in the list
         pthread_mutex_lock(&ghostlistMutex);
-        GhostData* ghost = ghostlist.front();
+        GhostData *ghost = ghostlist.front();
         // Set the speed of the ghost to 1
         ghost->speed = 1;
         ghost->speedClock.restart();
         // Print the message
-        //cout << "Speed boost granted to ghost " << ghost->ghostID << endl;
+        // cout << "Speed boost granted to ghost " << ghost->ghostID << endl;
         // Release the mutex
         pthread_mutex_unlock(&ghostlistMutex);
     }
@@ -271,14 +273,14 @@ void updatespeedboost()
     {
         pthread_mutex_lock(&ghostlistMutex);
         // Get a pointer to the first ghost in the list
-        GhostData* ghost = ghostlist.front();
+        GhostData *ghost = ghostlist.front();
         // Check if speed boost is active and time limit exceeded
         if (ghost->speed && ghost->speedClock.getElapsedTime().asSeconds() > 3)
         {
             // Remove the speed boost
             ghost->speed = 0;
             // Print the message
-            //cout << "Speed boost removed from ghost " << ghost->ghostID << endl;
+            // cout << "Speed boost removed from ghost " << ghost->ghostID << endl;
             // Pop the first ghost from the list
             ghostlist.pop_front();
             // If ghost priority is not high, push it to the back
@@ -286,13 +288,13 @@ void updatespeedboost()
             {
                 ghostlist.push_back(ghost);
             }
-            //cout << "List of ghosts: ";
-           // for (auto it = ghostlist.begin(); it != ghostlist.end(); ++it)
-           // {
-              //  cout << (*it)->ghostID << " ";
-          //  }
-        //cout << endl;
-            // Release the semaphore
+            // cout << "List of ghosts: ";
+            // for (auto it = ghostlist.begin(); it != ghostlist.end(); ++it)
+            // {
+            //  cout << (*it)->ghostID << " ";
+            //  }
+            // cout << endl;
+            //  Release the semaphore
             sem_post(&speedBoostSemaphore);
         }
         pthread_mutex_unlock(&ghostlistMutex);
@@ -310,16 +312,16 @@ bool valid(int x, int y)
 }
 
 // function to leave the ghost house based on key and permit
-void leaveGhostHouse(GhostData* ghost) 
+void leaveGhostHouse(GhostData *ghost)
 {
     // Attempt to acquire a key
-    if(sem_trywait(&keySemaphore)==0)
+    if (sem_trywait(&keySemaphore) == 0)
     {
         ghost->hasKey = true;
         cout << "Ghost " << ghost->ghostID << " got a key." << endl;
         usleep(1000000);
         // if key acquired, attempt to get permit
-        if(sem_trywait(&permitSemaphore)==0)
+        if (sem_trywait(&permitSemaphore) == 0)
         {
             ghost->hasPermit = true;
             cout << "Ghost " << ghost->ghostID << " got an exit permit amd key." << endl;
@@ -340,16 +342,16 @@ void leaveGhostHouse(GhostData* ghost)
             return;
         }
     }
-    
+
     // if didnt get key, Attempt to acquire an exit permit
-    if(sem_trywait(&permitSemaphore)==0)
+    if (sem_trywait(&permitSemaphore) == 0)
     {
         ghost->hasPermit = true;
         cout << "Ghost " << ghost->ghostID << " got an exit permit." << endl;
         usleep(1000000);
 
         // if got exit permit attempt to get key
-        if(sem_trywait(&keySemaphore)==0)
+        if (sem_trywait(&keySemaphore) == 0)
         {
             ghost->hasKey = true;
             cout << "Ghost " << ghost->ghostID << " got a key amd exit." << endl;
@@ -372,7 +374,7 @@ void leaveGhostHouse(GhostData* ghost)
     }
 }
 
-        // leave this function commented out might need it in demo
+// leave this function commented out might need it in demo
 
 /*
 void leaveGhostHousee(GhostData* ghost) {
@@ -398,85 +400,85 @@ void leaveGhostHousee(GhostData* ghost) {
 }
 */
 
-//function to find path for ghost
-int findPath(pair<int,int> source, pair<int,int> dest)
+// function to find path for ghost
+int findPath(pair<int, int> source, pair<int, int> dest)
 {
-   //perform bfs to find distance and return
+    // perform bfs to find distance and return
     int distance[ROWS][COLS];
-    for(int i=0;i<ROWS;i++)
+    for (int i = 0; i < ROWS; i++)
     {
-        for(int j=0;j<COLS;j++)
+        for (int j = 0; j < COLS; j++)
         {
             distance[i][j] = INT_MAX;
         }
     }
     distance[source.first][source.second] = 0;
-    queue<pair<int,int>> q;
+    queue<pair<int, int>> q;
     q.push(source);
-    while(!q.empty())
+    while (!q.empty())
     {
-        pair<int,int> current = q.front();
+        pair<int, int> current = q.front();
         q.pop();
         int x = current.first;
         int y = current.second;
-        if(x == dest.first && y == dest.second)
+        if (x == dest.first && y == dest.second)
         {
             return distance[x][y];
         }
-        if(valid(x+1,y) && distance[x+1][y] == INT_MAX)
+        if (valid(x + 1, y) && distance[x + 1][y] == INT_MAX)
         {
-            distance[x+1][y] = distance[x][y] + 1;
-            q.push(make_pair(x+1,y));
+            distance[x + 1][y] = distance[x][y] + 1;
+            q.push(make_pair(x + 1, y));
         }
-        if(valid(x-1,y) && distance[x-1][y] == INT_MAX)
+        if (valid(x - 1, y) && distance[x - 1][y] == INT_MAX)
         {
-            distance[x-1][y] = distance[x][y] + 1;
-            q.push(make_pair(x-1,y));
+            distance[x - 1][y] = distance[x][y] + 1;
+            q.push(make_pair(x - 1, y));
         }
-        if(valid(x,y+1) && distance[x][y+1] == INT_MAX)
+        if (valid(x, y + 1) && distance[x][y + 1] == INT_MAX)
         {
-            distance[x][y+1] = distance[x][y] + 1;
-            q.push(make_pair(x,y+1));
+            distance[x][y + 1] = distance[x][y] + 1;
+            q.push(make_pair(x, y + 1));
         }
-        if(valid(x,y-1) && distance[x][y-1] == INT_MAX)
+        if (valid(x, y - 1) && distance[x][y - 1] == INT_MAX)
         {
-            distance[x][y-1] = distance[x][y] + 1;
-            q.push(make_pair(x,y-1));
+            distance[x][y - 1] = distance[x][y] + 1;
+            q.push(make_pair(x, y - 1));
         }
     }
     return distance[dest.first][dest.second];
 }
-//function to find the next move for ghost
-int findNextMove(pair<int,int> source, pair<int,int> dest)
+// function to find the next move for ghost
+int findNextMove(pair<int, int> source, pair<int, int> dest)
 {
     // call find path from all neighbors of source to dest
     // return the direction of the neighbor with minimum distance
     int minDistance = INT_MAX;
     int direction = -1;
     // Array to store the 4 possible directions
-    int dx[] = {0,0,-1,1};
-    int dy[] = {-1,1,0,0};
-    for(int i=0; i<4; i++)
+    int dx[] = {0, 0, -1, 1};
+    int dy[] = {-1, 1, 0, 0};
+    for (int i = 0; i < 4; i++)
     {
         int x = source.first + dx[i];
         int y = source.second + dy[i];
         // Check if the neighbor is valid
-        if(valid(x,y))
+        if (valid(x, y))
         {
             // Find the distance of the neighbor from the destination
-            int d = findPath(make_pair(x,y),dest);
+            int d = findPath(make_pair(x, y), dest);
             // Update the minimum distance and direction
-            if(d != -1 && d < minDistance)
+            if (d != -1 && d < minDistance)
             {
                 minDistance = d;
-                direction = i+1;
+                direction = i + 1;
             }
         }
     }
     return direction;
 }
 // Function to reset all positions when pacman collide with ghost
-void resetGame(GhostData& ghost1, GhostData& ghost2, GhostData& ghost3, GhostData& ghost4)
+void resetGame(GhostData &ghost1, GhostData &ghost2, GhostData &ghost3, GhostData &ghost4)
 {
     // Reset the game
     ghost1.x = 355;
@@ -519,7 +521,7 @@ void resetGame(GhostData& ghost1, GhostData& ghost2, GhostData& ghost3, GhostDat
     ghostlist.push_back(&ghost3);
     // Reset the reset flag
     reset = false;
-    cout<<"GAME RESET";
+    cout << "GAME RESET";
     start = 1;
 }
 
@@ -529,17 +531,19 @@ void *ghostController(void *arg)
     while (true)
     {
         // Wait for all ghosts threads to be initialized
-        while(!start);
-        
+        while (!start)
+            ;
+
         // attempt to leave the house
-        while(ghost->isActivated==0)
+        while (ghost->isActivated == 0)
         {
-            //usleep(3000000);
+            // usleep(3000000);
             leaveGhostHouse(ghost);
-            if(ghost->isActivated==0)
+            if (ghost->isActivated == 0)
             {
                 // Ghost is still in the ghost house sleep for 3 seconds
-                cout<<ghost->ghostID<<"  is still in house"<<endl<<endl;
+                cout << ghost->ghostID << "  is still in house" << endl
+                     << endl;
                 usleep(3000000);
             }
         }
@@ -550,7 +554,7 @@ void *ghostController(void *arg)
             ghost->speedClock.restart();
             // Push the ghost back to the end of ghostlist
             pthread_mutex_lock(&ghostlistMutex);
-            GhostData* temp = ghostlist.front();
+            GhostData *temp = ghostlist.front();
             ghostlist.pop_front();
             ghostlist.push_front(ghost);
             ghostlist.push_front(temp);
@@ -559,7 +563,7 @@ void *ghostController(void *arg)
             // Grant the speed boost
             grantspeedboost();
         }
-        else if (ghost->pr != 1 && ghost->speed == 0)   // lower priority want the boost always
+        else if (ghost->pr != 1 && ghost->speed == 0) // lower priority want the boost always
         {
             // Grant the speed boost
             grantspeedboost();
@@ -568,35 +572,34 @@ void *ghostController(void *arg)
         // Update the speed boost
         updatespeedboost();
 
-       // collisions of pacman with ghost
+        // collisions of pacman with ghost
         pthread_mutex_lock(&PacmanPosMutex);
         // powerup active
-            if (powerupActive && (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE))
-            {
-                //cout<<"Ghost caught pacman"<<endl;
-                // reset ghost position
-                ghost->x= 451;
-                ghost->y= 454;
-                ghost->isActivated = 0;
-            }
-            else if (!powerupActive && (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE))
-            {
-                // signal main to reset game.
-                reset = 1;
-                pthread_mutex_unlock(&PacmanPosMutex);
-                continue;
-            }
+        if (powerupActive && (pacman_x / CELL_SIZE == ghost->x / CELL_SIZE && pacman_y / CELL_SIZE == ghost->y / CELL_SIZE))
+        {
+            // cout<<"Ghost caught pacman"<<endl;
+            //  reset ghost position
+            ghost->x = 451;
+            ghost->y = 454;
+            ghost->isActivated = 0;
+        }
+        else if (!powerupActive && (pacman_x / CELL_SIZE == ghost->x / CELL_SIZE && pacman_y / CELL_SIZE == ghost->y / CELL_SIZE))
+        {
+            // signal main to reset game.
+            reset = 1;
+            pthread_mutex_unlock(&PacmanPosMutex);
+            continue;
+        }
         pthread_mutex_unlock(&PacmanPosMutex);
-        
-        
-        if((ghost->ghostID == 2 || ghost->ghostID == 3) && !powerupActive)
+
+        if ((ghost->ghostID == 2 || ghost->ghostID == 3) && !powerupActive)
         {
             // execute smart ghost movement
 
             // Find the next move for the ghost
             pthread_mutex_lock(&GameBoardMutex);
             pthread_mutex_lock(&PacmanPosMutex);
-            int direction = findNextMove(make_pair(ghost->x/CELL_SIZE,ghost->y/CELL_SIZE),make_pair(pacman_x/CELL_SIZE,pacman_y/CELL_SIZE));
+            int direction = findNextMove(make_pair(ghost->x / CELL_SIZE, ghost->y / CELL_SIZE), make_pair(pacman_x / CELL_SIZE, pacman_y / CELL_SIZE));
             pthread_mutex_unlock(&PacmanPosMutex);
             pthread_mutex_unlock(&GameBoardMutex);
             // Update the direction of the ghost
@@ -626,47 +629,47 @@ void *ghostController(void *arg)
         else
         {
             // execute dumb ghost movement
-            
+
             int directionX = 0;
             int directionY = 0;
 
             bool chosen = false;
             pthread_mutex_lock(&GameBoardMutex);
-                if (ghost->direction == 1 || ghost->direction == 2)
-                { // Up or down
-                    // Randomly choose left or right
-                        if (valid((ghost->x + CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE) && rand() % 2 == 0)
-                        {
-                            directionX = 1;
-                            chosen = true;
-                            ghost->direction = 4;
-                        }
-                        else if (valid((ghost->x - CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE) && rand() % 2 == 0)
-                        {
-
-                            directionX = -1;
-                            chosen = true;
-                            ghost->direction = 3;
-                        }
+            if (ghost->direction == 1 || ghost->direction == 2)
+            { // Up or down
+              // Randomly choose left or right
+                if (valid((ghost->x + CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE) && rand() % 2 == 0)
+                {
+                    directionX = 1;
+                    chosen = true;
+                    ghost->direction = 4;
                 }
-                else if (ghost->direction == 3 || ghost->direction == 4)
-                { // Left or right
+                else if (valid((ghost->x - CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE) && rand() % 2 == 0)
+                {
+
+                    directionX = -1;
+                    chosen = true;
+                    ghost->direction = 3;
+                }
+            }
+            else if (ghost->direction == 3 || ghost->direction == 4)
+            {   // Left or right
                 // Randomly choose up or down
-                    if (valid(ghost->x / CELL_SIZE, (ghost->y + CELL_SIZE) / CELL_SIZE) && rand() % 2 ==0)
-                    {   
-                        directionY = 1;
-                        chosen = true;
-                        ghost->direction = 2;                       
-                    }
-            
-                    else if (valid(ghost->x / CELL_SIZE, (ghost->y - CELL_SIZE) / CELL_SIZE)&& rand() % 2 ==0)
-                    {
-
-                        directionY = -1;
-                        chosen = true;
-                        ghost->direction = 1;   
-                    }     
+                if (valid(ghost->x / CELL_SIZE, (ghost->y + CELL_SIZE) / CELL_SIZE) && rand() % 2 == 0)
+                {
+                    directionY = 1;
+                    chosen = true;
+                    ghost->direction = 2;
                 }
+
+                else if (valid(ghost->x / CELL_SIZE, (ghost->y - CELL_SIZE) / CELL_SIZE) && rand() % 2 == 0)
+                {
+
+                    directionY = -1;
+                    chosen = true;
+                    ghost->direction = 1;
+                }
+            }
             pthread_mutex_unlock(&GameBoardMutex);
             if (!chosen)
             {
@@ -698,63 +701,62 @@ void *ghostController(void *arg)
             {
                 ghost->x += directionX * CELL_SIZE;
                 ghost->y += directionY * CELL_SIZE;
-                //cout<<ghost->x/CELL_SIZE<<" "<< ghost->y/CELL_SIZE<<endl; 
+                // cout<<ghost->x/CELL_SIZE<<" "<< ghost->y/CELL_SIZE<<endl;
             }
             else
             {
                 // move ghost in opposite direction
-                //cout<<"walled";
+                // cout<<"walled";
                 if (ghost->direction == 1 && valid(ghost->x / CELL_SIZE, (ghost->y + CELL_SIZE) / CELL_SIZE))
                 {
                     ghost->direction = 2;
-                    directionY = 1 ; 
+                    directionY = 1;
                     ghost->x += directionX * CELL_SIZE;
                     ghost->y += directionY * CELL_SIZE;
                 }
                 else if (ghost->direction == 2 && valid(ghost->x / CELL_SIZE, (ghost->y - CELL_SIZE) / CELL_SIZE))
                 {
                     ghost->direction = 1;
-                    directionY =-1 ; 
+                    directionY = -1;
                     ghost->x += directionX * CELL_SIZE;
                     ghost->y += directionY * CELL_SIZE;
                 }
                 else if (ghost->direction == 3 && valid((ghost->x + CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE))
                 {
                     ghost->direction = 4;
-                    directionX = 1 ; 
+                    directionX = 1;
                     ghost->x += directionX * CELL_SIZE;
                     ghost->y += directionY * CELL_SIZE;
                 }
                 else if (ghost->direction == 4 && valid((ghost->x - CELL_SIZE) / CELL_SIZE, ghost->y / CELL_SIZE))
                 {
                     ghost->direction = 3;
-                    directionX = -1 ; 
+                    directionX = -1;
                     ghost->x += directionX * CELL_SIZE;
                     ghost->y += directionY * CELL_SIZE;
                 }
-                //sleep(1);
-                //cout<<ghost->x/CELL_SIZE<<" "<< ghost->y/CELL_SIZE<<endl; 
+                // sleep(1);
+                // cout<<ghost->x/CELL_SIZE<<" "<< ghost->y/CELL_SIZE<<endl;
             }
             pthread_mutex_unlock(&GameBoardMutex);
         }
 
         pthread_mutex_lock(&PacmanPosMutex);
-            if (powerupActive && (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE))
-            {
-                //cout<<"Ghost caught pacman"<<endl;
-                // reset ghost position
-                ghost->x= 451;
-                ghost->y= 454;
-                ghost->isActivated = 0;
-            }
-            else if (!powerupActive && (pacman_x/CELL_SIZE == ghost->x/CELL_SIZE && pacman_y/CELL_SIZE == ghost->y/CELL_SIZE))
-            {
-                
-                reset = true;
-                pthread_mutex_unlock(&PacmanPosMutex);
-                continue;
-               
-            }
+        if (powerupActive && (pacman_x / CELL_SIZE == ghost->x / CELL_SIZE && pacman_y / CELL_SIZE == ghost->y / CELL_SIZE))
+        {
+            // cout<<"Ghost caught pacman"<<endl;
+            //  reset ghost position
+            ghost->x = 451;
+            ghost->y = 454;
+            ghost->isActivated = 0;
+        }
+        else if (!powerupActive && (pacman_x / CELL_SIZE == ghost->x / CELL_SIZE && pacman_y / CELL_SIZE == ghost->y / CELL_SIZE))
+        {
+
+            reset = true;
+            pthread_mutex_unlock(&PacmanPosMutex);
+            continue;
+        }
         pthread_mutex_unlock(&PacmanPosMutex);
 
         // if close
@@ -763,14 +765,14 @@ void *ghostController(void *arg)
             pthread_exit(NULL);
         }
         // Sleep to control the speed of the ghost
-        if(ghost->speed==0)
-        usleep(200000);         // unbosted ghost speed
+        if (ghost->speed == 0)
+            usleep(200000); // unbosted ghost speed
         else if (ghost->speed == 1 && ghost->ghostID == 2 || ghost->ghostID == 3)
         {
-            usleep(150000);     // smart ghost speed(not super fast otherwise it will be impossible to win)
+            usleep(150000); // smart ghost speed(not super fast otherwise it will be impossible to win)
         }
         else
-        usleep(100000);         // dumb ghost speed
+            usleep(100000); // dumb ghost speed
     }
     pthread_exit(NULL);
 }
@@ -862,7 +864,7 @@ void movePacman(sf::Texture &pacman_texture)
     int nextX = pacman_x + pacman_direction_x * CELL_SIZE;
     int nextY = pacman_y + pacman_direction_y * CELL_SIZE;
     pthread_mutex_lock(&GameBoardMutex);
-    if(valid(nextX/CELL_SIZE,nextY/CELL_SIZE))
+    if (valid(nextX / CELL_SIZE, nextY / CELL_SIZE))
     {
         // Update pacman's position
         pacman_x += pacman_direction_x * CELL_SIZE;
@@ -870,7 +872,6 @@ void movePacman(sf::Texture &pacman_texture)
     }
     pthread_mutex_unlock(&PacmanPosMutex);
 
-   
     // ScorePallet Detection
     if (abs(gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE]) == 2)
     {
@@ -882,19 +883,19 @@ void movePacman(sf::Texture &pacman_texture)
         musicMunch.play();
         // cout<<Score<<endl;
     }
-    if (abs(gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 4) &&  powerupActive == false)
+    if (abs(gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 4) && powerupActive == false)
     {
         gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] = 0;
         powerupActive = true;
-            if (powerupActive)
-           {
-            musicEat.play(); 
-            //cout << "Eaten power up ";
+        if (powerupActive)
+        {
+            musicEat.play();
+            // cout << "Eaten power up ";
             powerupClock.restart();
             powercountclock.restart();
             powerupcount++;
-            // make a new thread and let it sleep for 5 sec , then change the flag 
-           }
+            // make a new thread and let it sleep for 5 sec , then change the flag
+        }
         // maybe start a new thread for 5 seconds and then change the flag back to false ;
     }
     // ghost collision detection with all ghosts 1 2 3 4
@@ -906,8 +907,8 @@ void movePacman(sf::Texture &pacman_texture)
         {
             if (ghosts[i].x / CELL_SIZE == pacman_x / CELL_SIZE && ghosts[i].y / CELL_SIZE == pacman_y / CELL_SIZE)
             {
-                //cout << "Ghost caught pacman" << endl;
-                // reset ghost position
+                // cout << "Ghost caught pacman" << endl;
+                //  reset ghost position
                 ghosts[i].x = 451;
                 ghosts[i].y = 454;
                 ghosts[i].isActivated = 0;
@@ -934,24 +935,23 @@ void movePacman(sf::Texture &pacman_texture)
     pthread_mutex_unlock(&PacmanPosMutex);
 }
 
-   
-
 int main()
-{       
+{
     Music bgMusic;
-    if(!bgMusic.openFromFile("sounds/pacman_intermission.wav"))cout<<"issue";
+    if (!bgMusic.openFromFile("sounds/pacman_intermission.wav"))
+        cout << "issue";
     bgMusic.setLoop(1);
     bgMusic.setVolume(20);
     bgMusic.play();
-    if (!musicmenu.openFromFile("sounds/pacman_beginning.wav")) 
-    cout<<"sound not loaded";
-    if (!musicEat.openFromFile("sounds/pacman_eatfruit.wav")) 
-    cout<<"sound  1 not loaded";
-    if (!musicMunch.openFromFile("sounds/pacman_chomp.wav")) 
-    cout<<"sound  1 not loaded";
+    if (!musicmenu.openFromFile("sounds/pacman_beginning.wav"))
+        cout << "sound not loaded";
+    if (!musicEat.openFromFile("sounds/pacman_eatfruit.wav"))
+        cout << "sound  1 not loaded";
+    if (!musicMunch.openFromFile("sounds/pacman_chomp.wav"))
+        cout << "sound  1 not loaded";
     musicMunch.setVolume(50);
-    if (!musicReset.openFromFile("sounds/pacman_death.wav")) 
-    cout<<"sound  1 not loaded";
+    if (!musicReset.openFromFile("sounds/pacman_death.wav"))
+        cout << "sound  1 not loaded";
     //  Initialize random seed
     srand(time(nullptr));
     // Initialize game board
@@ -983,7 +983,7 @@ int main()
     musicmenu.setVolume(50);
     musicmenu.play();
     while (windoww.isOpen())
-    {   
+    {
         Event event;
         while (windoww.pollEvent(event))
         {
@@ -993,11 +993,11 @@ int main()
                 // signal main to close window
                 windoww.close();
                 exit(0);
-
             }
             else if (event.type == Event::KeyPressed)
             {
-                if(event.key.code == Keyboard::Enter){
+                if (event.key.code == Keyboard::Enter)
+                {
                     windoww.close();
                     musicmenu.stop();
                 }
@@ -1021,13 +1021,12 @@ int main()
     sf::CircleShape ghost_shape4(25 / 2);
     sf::Texture palletFeatureTexture;
     palletFeatureTexture.loadFromFile("cherry.png");
-    sf::Sprite palletFeatSprite(palletFeatureTexture) ; 
- 
+    sf::Sprite palletFeatSprite(palletFeatureTexture);
 
-    sf::Texture livetexture; 
+    sf::Texture livetexture;
     livetexture.loadFromFile("live.png");
-    sf::Sprite livesprite(livetexture) ; 
-    livesprite.setPosition(700,960);
+    sf::Sprite livesprite(livetexture);
+    livesprite.setPosition(700, 960);
     livesprite.setScale(0.08, 0.08);
     sf::Texture ghost_texture1, ghost_texture2, ghost_texture3, ghost_texture4;
     ghost_texture1.loadFromFile("GhostRed.png");
@@ -1037,9 +1036,9 @@ int main()
     ghost_texture3.loadFromFile("GhostGreen.png");
     ghost_shape3.setTexture(&ghost_texture3);
     ghost_texture4.loadFromFile("GhostYellow.png");
-    ghost_shape4.setTexture(&ghost_texture4);    
+    ghost_shape4.setTexture(&ghost_texture4);
     pacman_shape.setPosition(25 / 8, 25 / 4); // Set initial position to (100, 50)
-    
+
     // Initialize semaphore for speed boost
     sem_init(&speedBoostSemaphore, 0, 2); // Initialize with 2 speed boosts available
 
@@ -1054,7 +1053,7 @@ int main()
     // Initialize ghosts' data
     ghosts[0].x = 355;
     ghosts[0].y = 454;
-    ghosts[1].x = 387;  
+    ghosts[1].x = 387;
     ghosts[1].y = 454;
     ghosts[2].x = 451;
     ghosts[2].y = 454;
@@ -1072,7 +1071,7 @@ int main()
     // push the low priority ghosts in the ghostlist
     ghostlist.push_back(&ghosts[1]);
     ghostlist.push_back(&ghosts[2]);
-   
+
     // Create threads for ghost controllers
     pthread_t ghost1Thread;
     pthread_t ghost2Thread;
@@ -1093,70 +1092,70 @@ int main()
             int randRow = rand() % ROWS;
             int randCol = rand() % COLS;
             if (valid(randCol, randRow) && gameMap[randRow][randCol] != 4)
-            {   
+            {
                 gameMap[randRow][randCol] = 4;
                 powerupcount--;
                 powercountclock.restart();
             }
         }
 
-
-        if(powerupActive )
+        if (powerupActive)
         {
             ghost_texture1.loadFromFile("ghostscared.png");
             ghost_texture2.loadFromFile("ghostscared.png");
             ghost_texture3.loadFromFile("ghostscared.png");
             ghost_texture4.loadFromFile("ghostscared.png");
         }
-        if(powerupClock.getElapsedTime().asSeconds() >=10 )
+        if (powerupClock.getElapsedTime().asSeconds() >= 10)
         {
-            powerupActive = false ; 
+            powerupActive = false;
             musicEat.stop();
-        //    cout<<"Removed power up ; ";
+            //    cout<<"Removed power up ; ";
             ghost_texture1.loadFromFile("GhostRed.png");
             ghost_texture2.loadFromFile("GhostBlue.png");
             ghost_texture3.loadFromFile("GhostGreen.png");
             ghost_texture4.loadFromFile("GhostYellow.png");
-
         }
-        
+
         // move the pcman
         movePacman(pacman_texture);
         // check if game needs to be reset on collision with ghost
-        if(reset==true)
+        if (reset == true)
         {
             start = 0;
             life--;
-            resetGame(ghosts[0],ghosts[1],ghosts[2],ghosts[3]);
+            resetGame(ghosts[0], ghosts[1], ghosts[2], ghosts[3]);
         }
 
         // draw the game
         window.clear();
         window.draw(background);
         drawGrid(window);
-        pacman_shape.setPosition(pacman_x, pacman_y); // Update pacman position
+        pacman_shape.setPosition(pacman_x, pacman_y);       // Update pacman position
         ghost_shape1.setPosition(ghosts[0].x, ghosts[0].y); // Update ghost position
         ghost_shape2.setPosition(ghosts[1].x, ghosts[1].y); // Update ghost position
         ghost_shape3.setPosition(ghosts[2].x, ghosts[2].y); // Update ghost position
         ghost_shape4.setPosition(ghosts[3].x, ghosts[3].y); // Update ghost position
-        window.draw(pacman_shape);                    
-        window.draw(ghost_shape1);                    
+        window.draw(pacman_shape);
+        window.draw(ghost_shape1);
         window.draw(ghost_shape2);
         window.draw(ghost_shape3);
         window.draw(ghost_shape4);
-        for(int kk = 0 ; kk<life ; kk++){
-            livesprite.setPosition(700+kk*30,960);
-        window.draw(livesprite);
-        }
-        for(int i =  powerupcount ; i < 4  ; i++ )
+        for (int kk = 0; kk < life; kk++)
         {
-            palletFeatSprite.setPosition(150+i*30, 960);
-             window.draw(palletFeatSprite);
+            livesprite.setPosition(700 + kk * 30, 960);
+            window.draw(livesprite);
         }
-      
+        for (int i = powerupcount; i < 4; i++)
+        {
+            palletFeatSprite.setPosition(150 + i * 30, 960);
+            window.draw(palletFeatSprite);
+        }
+
         window.display();
-        checkwin(gameMap);
+        checkwin(gameMap, window);
         usleep(150000); // Sleep for 0.3 seconds
+       
         if (closwindow == 1)
         {
             pthread_cancel(userInputThread);
@@ -1181,6 +1180,97 @@ int main()
     sem_destroy(&speedBoostSemaphore);
     sem_destroy(&keySemaphore);
     sem_destroy(&permitSemaphore);
+
+
+    if(gamewon){
+
+     sf::RenderWindow window(sf::VideoMode(1000, 1000), "SFML Text");
+
+    // Create a font
+    sf::Font font;
+    if (!font.loadFromFile("SIXTY.TTF")) {
+        // Error handling if the font fails to load
+        std::cerr << "Failed to load font file" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // Create a text object
+    sf::Text text;
+    text.setFont(font);
+    text.setString("Congrats You WON the Game!\n Press Enter to end!");
+    text.setCharacterSize(24);
+    text.setFillColor(sf::Color::White);
+    text.setPosition(400, 500);
+
+    // Main loop
+    while (window.isOpen()) {
+        // Event handling
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed) {
+                window.close();
+            } else if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Return) {
+                // Check if the Enter key is pressed
+                window.close(); // Close the window if Enter is pressed
+            }
+        }
+
+        // Clear the window
+        window.clear();
+
+        // Draw the text
+        window.draw(text);
+
+        // Display the window
+        window.display();
+    }
+
+    }
+   else if(!gamewon){
+
+     sf::RenderWindow window(sf::VideoMode(1000, 1000), "SFML Text");
+
+    // Create a font
+    sf::Font font;
+    if (!font.loadFromFile("SIXTY.TTF")) {
+        // Error handling if the font fails to load
+        std::cerr << "Failed to load font file" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // Create a text object
+    sf::Text text;
+    text.setFont(font);
+    text.setString("Hard Luck Next Time:( \nPress Enter to end!");
+    text.setCharacterSize(24);
+    text.setFillColor(sf::Color::White);
+    text.setPosition(400, 500);
+
+    // Main loop
+    while (window.isOpen()) {
+        // Event handling
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed) {
+                window.close();
+            } else if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Return) {
+                // Check if the Enter key is pressed
+                window.close(); // Close the window if Enter is pressed
+            }
+        }
+
+        // Clear the window
+        window.clear();
+
+        // Draw the text
+        window.draw(text);
+
+        // Display the window
+        window.display();
+    }
+
+    }
+
 
     return 0;
 }
