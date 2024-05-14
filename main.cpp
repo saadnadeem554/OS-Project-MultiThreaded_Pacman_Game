@@ -244,6 +244,10 @@ void checkwin(int gamemap[ROWS][COLS], RenderWindow &window)
         gamewon = true;
         // terminate all threads
     }
+    if(life < 0 ){
+        closwindow = 1 ;
+        cout<<"lives ended";
+    }
 }
 
 // function to give speed boost to ghost
