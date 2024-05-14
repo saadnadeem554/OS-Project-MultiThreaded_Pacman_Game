@@ -5,6 +5,7 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/System.hpp>
 #include <SFML/Window.hpp>
+#include<SFML/Audio.hpp>
 #include <unistd.h>
 #include <iostream>
 #include <cstdlib>
@@ -26,7 +27,10 @@ using namespace sf;
 #define ROWS 30
 #define COLS 30
 #define CELL_SIZE 32 // Size of each cell in pixels
-
+ sf::Music musicEat;
+sf::Music musicmenu;
+sf ::Music musicMunch ;  
+sf ::Music musicReset ;  
 // skeleton game map
 int gameMapSkeleton[ROWS][COLS] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -871,9 +875,11 @@ void movePacman(sf::Texture &pacman_texture)
     if (abs(gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE]) == 2)
     {
         // ScorePallet found, update gameMap and increment score
+        musicMunch.stop();
         gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] = 0;
         totalScorePallet--;
         Score++;
+        musicMunch.play();
         // cout<<Score<<endl;
     }
     if (abs(gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE] == 4) &&  powerupActive == false)
@@ -882,6 +888,7 @@ void movePacman(sf::Texture &pacman_texture)
         powerupActive = true;
             if (powerupActive)
            {
+            musicEat.play(); 
             //cout << "Eaten power up ";
             powerupClock.restart();
             powercountclock.restart();
@@ -915,6 +922,8 @@ void movePacman(sf::Texture &pacman_texture)
             {
                 // signal main to reset game.
                 reset = 1;
+                musicReset.stop();
+                musicReset.play();
                 pthread_mutex_unlock(&GameBoardMutex);
                 pthread_mutex_unlock(&PacmanPosMutex);
                 return;
@@ -925,10 +934,19 @@ void movePacman(sf::Texture &pacman_texture)
     pthread_mutex_unlock(&PacmanPosMutex);
 }
 
-
+   
 
 int main()
-{
+{   
+    if (!musicmenu.openFromFile("sounds/pacman_beginning.wav")) 
+    cout<<"sound not loaded";
+    if (!musicEat.openFromFile("sounds/pacman_eatfruit.wav")) 
+    cout<<"sound  1 not loaded";
+    if (!musicMunch.openFromFile("sounds/pacman_chomp.wav")) 
+    cout<<"sound  1 not loaded";
+    musicMunch.setVolume(50);
+    if (!musicReset.openFromFile("sounds/pacman_death.wav")) 
+    cout<<"sound  1 not loaded";
     //  Initialize random seed
     srand(time(nullptr));
     // Initialize game board
@@ -956,8 +974,11 @@ int main()
     windoww.draw(menu);
     windoww.display();
     // wait for any key press
+    musicmenu.setLoop(true);
+    musicmenu.setVolume(50);
+    musicmenu.play();
     while (windoww.isOpen())
-    {
+    {   
         Event event;
         while (windoww.pollEvent(event))
         {
@@ -971,8 +992,10 @@ int main()
             }
             else if (event.type == Event::KeyPressed)
             {
-                if(event.key.code == Keyboard::Enter)
+                if(event.key.code == Keyboard::Enter){
                     windoww.close();
+                    musicmenu.stop();
+                }
             }
         }
     }
@@ -1083,6 +1106,7 @@ int main()
         if(powerupClock.getElapsedTime().asSeconds() >=10 )
         {
             powerupActive = false ; 
+            musicEat.stop();
         //    cout<<"Removed power up ; ";
             ghost_texture1.loadFromFile("GhostRed.png");
             ghost_texture2.loadFromFile("GhostBlue.png");
