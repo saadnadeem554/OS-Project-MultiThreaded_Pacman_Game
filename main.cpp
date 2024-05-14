@@ -969,7 +969,6 @@ void movePacman(sf::Texture &pacman_texture)
         pacman_x += pacman_direction_x * CELL_SIZE;
         pacman_y += pacman_direction_y * CELL_SIZE;
     }
-    pthread_mutex_unlock(&PacmanPosMutex);
 
     // ScorePallet Detection
     if (abs(gameMap[nextY / CELL_SIZE][nextX / CELL_SIZE]) == 2)
@@ -999,7 +998,8 @@ void movePacman(sf::Texture &pacman_texture)
     }
     // ghost collision detection with all ghosts 1 2 3 4
 
-    pthread_mutex_lock(&PacmanPosMutex);
+    //pthread_mutex_unlock(&PacmanPosMutex);
+    //pthread_mutex_lock(&PacmanPosMutex);
     if (powerupActive)
     {
         for (int i = 0; i < 4; i++)
@@ -1056,7 +1056,7 @@ int main()
     // Initialize game board
     intitializeGrid();
     int count = 0; // Counter for the number of positions initialized with 4
-    // two random posiiton for red circle (power up value  = 4 )
+    // 4 random posiiton for red circle (power up value  = 4 )
     while (powerupcount > 0)
     {
         int randRow = rand() % ROWS;
@@ -1077,7 +1077,6 @@ int main()
     // dispplay menu
     windoww.draw(menu);
     windoww.display();
-    // wait for any key press
     musicmenu.setLoop(true);
     musicmenu.setVolume(50);
     musicmenu.play();
@@ -1205,11 +1204,10 @@ int main()
             ghost_texture3.loadFromFile("ghostscared.png");
             ghost_texture4.loadFromFile("ghostscared.png");
         }
-        if (powerupClock.getElapsedTime().asSeconds() >= 100)
+        if (powerupClock.getElapsedTime().asSeconds() >= 10)
         {
             powerupActive = false;
             musicEat.stop();
-            //    cout<<"Removed power up ; ";
             ghost_texture1.loadFromFile("GhostRed.png");
             ghost_texture2.loadFromFile("GhostBlue.png");
             ghost_texture3.loadFromFile("GhostGreen.png");
