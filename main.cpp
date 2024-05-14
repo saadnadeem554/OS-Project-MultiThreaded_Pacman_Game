@@ -119,8 +119,10 @@ sem_t permitSemaphore;
 sem_t speedBoostSemaphore;
 // Declare list of pointers to GhostData
 std::list<GhostData *> ghostlist;
+std::list<GhostData *> activespeedboost;
 // add a mutex to protect the ghost list
 pthread_mutex_t ghostlistMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t speedboostlistMutex = PTHREAD_MUTEX_INITIALIZER;
 
 // function that puts score pallets in gamegrid
 void intitializeGrid()
@@ -249,6 +251,84 @@ void checkwin(int gamemap[ROWS][COLS], RenderWindow &window)
         cout<<"lives ended";
     }
 }
+void grantspeedboost()
+{
+    // Try to acquire the speed boost semaphore
+    if (sem_trywait(&speedBoostSemaphore) == 0)
+    {
+           //for(int i = 0; i < 2; i++)
+           //{
+                if(!ghostlist.empty())
+                {
+                    // Get a pointer to the first ghost in the list
+                    pthread_mutex_lock(&ghostlistMutex);
+                    GhostData *ghost = ghostlist.front();
+                    // Set the speed of the ghost to 1
+                    ghost->speed = 1;
+                    ghost->speedClock.restart();
+                    // Print the message
+                    cout << "Speed boost granted to ghost " << ghost->ghostID << endl;
+                    ghostlist.pop_front();
+
+                    
+                    // add them to the active speed boost list
+                    pthread_mutex_lock(&speedboostlistMutex);
+                    activespeedboost.push_back(ghost);
+                    pthread_mutex_unlock(&speedboostlistMutex);
+
+                    // Release the mutex
+                    pthread_mutex_unlock(&ghostlistMutex);
+                }
+           //}
+    }
+}
+
+
+// function that updates speed boost and the linked list
+void updatespeedboost()
+{
+    // Check if active ghost list is not empty
+        pthread_mutex_lock(&speedboostlistMutex);
+        //for(int i = 0; i < 2; i++)
+        //{
+        if (!activespeedboost.empty())
+        {
+            // Get a pointer to the first ghost in the list
+            GhostData *ghost = activespeedboost.front();
+            // Check if speed boost is active and time limit exceeded
+            if (ghost->speed && ghost->speedClock.getElapsedTime().asSeconds() > 5)
+            {
+                // Remove the speed boost
+                ghost->speed = 0;
+                // Print the message
+                cout << "Speed boost removed from ghost " << ghost->ghostID << endl;
+                // Pop the first ghost from the list
+                activespeedboost.pop_front();
+                // If ghost priority is not high, push it to the back
+                if (ghost->pr > 1)
+                {
+                    pthread_mutex_lock(&ghostlistMutex);
+                    ghostlist.push_back(ghost);
+                    pthread_mutex_unlock(&ghostlistMutex);
+                }
+                pthread_mutex_lock(&ghostlistMutex);
+                cout << "List of ghosts: ";
+                for (auto it = ghostlist.begin(); it != ghostlist.end(); ++it)
+                {
+                cout << (*it)->ghostID << " ";
+                }
+                cout << endl;
+                pthread_mutex_unlock(&ghostlistMutex);
+                //  Release the semaphore
+                sem_post(&speedBoostSemaphore);
+            }
+        }
+        pthread_mutex_unlock(&speedboostlistMutex);
+    //}
+}
+
+
+/*
 
 // function to give speed boost to ghost
 void grantspeedboost()
@@ -256,16 +336,33 @@ void grantspeedboost()
     // Try to acquire the speed boost semaphore
     if (sem_trywait(&speedBoostSemaphore) == 0)
     {
-        // Get a pointer to the first ghost in the list
-        pthread_mutex_lock(&ghostlistMutex);
-        GhostData *ghost = ghostlist.front();
-        // Set the speed of the ghost to 1
-        ghost->speed = 1;
-        ghost->speedClock.restart();
-        // Print the message
-        // cout << "Speed boost granted to ghost " << ghost->ghostID << endl;
-        // Release the mutex
-        pthread_mutex_unlock(&ghostlistMutex);
+            if(!ghostlist.empty())
+            {
+                // Get a pointer to the first ghost in the list
+                pthread_mutex_lock(&ghostlistMutex);
+                GhostData *ghost = ghostlist.front();
+                // Set the speed of the ghost to 1
+                ghost->speed = 1;
+                ghost->speedClock.restart();
+                // Print the message
+                cout << "Speed boost granted to ghost " << ghost->ghostID << endl;
+                // get the 2nd ghost
+                ghostlist.pop_front();
+                if(!ghostlist.empty())
+                {
+                    GhostData *temp = ghostlist.front();
+                    // give the speed boost to the 2nd ghost
+                    temp->speed = 1;
+                    temp->speedClock.restart();
+                    cout << "Speed boost granted to ghost " << temp->ghostID << endl;
+                }
+                // push the first ghost to the back to the list
+                ghostlist.push_front(ghost);
+
+                // Release the mutex
+                pthread_mutex_unlock(&ghostlistMutex);
+            }
+
     }
 }
 
@@ -279,12 +376,12 @@ void updatespeedboost()
         // Get a pointer to the first ghost in the list
         GhostData *ghost = ghostlist.front();
         // Check if speed boost is active and time limit exceeded
-        if (ghost->speed && ghost->speedClock.getElapsedTime().asSeconds() > 3)
+        if (ghost->speed && ghost->speedClock.getElapsedTime().asSeconds() > 5)
         {
             // Remove the speed boost
             ghost->speed = 0;
             // Print the message
-            // cout << "Speed boost removed from ghost " << ghost->ghostID << endl;
+             cout << "Speed boost removed from ghost " << ghost->ghostID << endl;
             // Pop the first ghost from the list
             ghostlist.pop_front();
             // If ghost priority is not high, push it to the back
@@ -292,19 +389,19 @@ void updatespeedboost()
             {
                 ghostlist.push_back(ghost);
             }
-            // cout << "List of ghosts: ";
-            // for (auto it = ghostlist.begin(); it != ghostlist.end(); ++it)
-            // {
-            //  cout << (*it)->ghostID << " ";
-            //  }
-            // cout << endl;
+             cout << "List of ghosts: ";
+             for (auto it = ghostlist.begin(); it != ghostlist.end(); ++it)
+             {
+              cout << (*it)->ghostID << " ";
+              }
+             cout << endl;
             //  Release the semaphore
             sem_post(&speedBoostSemaphore);
         }
         pthread_mutex_unlock(&ghostlistMutex);
     }
 }
-
+*/
 // function to check a valid position
 bool valid(int x, int y)
 {
@@ -322,14 +419,14 @@ void leaveGhostHouse(GhostData *ghost)
     if (sem_trywait(&keySemaphore) == 0)
     {
         ghost->hasKey = true;
-        cout << "Ghost " << ghost->ghostID << " got a key." << endl;
+        //cout << "Ghost " << ghost->ghostID << " got a key." << endl;
         usleep(1000000);
         // if key acquired, attempt to get permit
         if (sem_trywait(&permitSemaphore) == 0)
         {
             ghost->hasPermit = true;
-            cout << "Ghost " << ghost->ghostID << " got an exit permit amd key." << endl;
-            cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
+            //cout << "Ghost " << ghost->ghostID << " got an exit permit amd key." << endl;
+            //cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
             ghost->isActivated = true;
             usleep(1000000);
             // release the semaphores
@@ -340,7 +437,7 @@ void leaveGhostHouse(GhostData *ghost)
         else
         {
             // if dont get permit leave key and exit
-            cout << "Ghost " << ghost->ghostID << " got a key. BUT NO EXIT" << endl;
+            //cout << "Ghost " << ghost->ghostID << " got a key. BUT NO EXIT" << endl;
             // release the key semaphore
             sem_post(&keySemaphore);
             return;
@@ -351,15 +448,15 @@ void leaveGhostHouse(GhostData *ghost)
     if (sem_trywait(&permitSemaphore) == 0)
     {
         ghost->hasPermit = true;
-        cout << "Ghost " << ghost->ghostID << " got an exit permit." << endl;
+        //cout << "Ghost " << ghost->ghostID << " got an exit permit." << endl;
         usleep(1000000);
 
         // if got exit permit attempt to get key
         if (sem_trywait(&keySemaphore) == 0)
         {
             ghost->hasKey = true;
-            cout << "Ghost " << ghost->ghostID << " got a key amd exit." << endl;
-            cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
+            //cout << "Ghost " << ghost->ghostID << " got a key amd exit." << endl;
+            //cout << "Ghost " << ghost->ghostID << " left the ghost house." << endl;
             ghost->isActivated = true;
             usleep(1000000);
             // release the semaphores
@@ -370,7 +467,7 @@ void leaveGhostHouse(GhostData *ghost)
         else
         {
             // if not, leave
-            cout << "Ghost " << ghost->ghostID << " got an exit permit. BUT NO KEY" << endl;
+            //cout << "Ghost " << ghost->ghostID << " got an exit permit. BUT NO KEY" << endl;
             // release the permit semaphore
             sem_post(&permitSemaphore);
             return;
@@ -516,7 +613,7 @@ void resetGame(GhostData &ghost1, GhostData &ghost2, GhostData &ghost3, GhostDat
     // Reset the powerup
     powerupActive = false;
     // Reset the speed boost
-    sem_init(&speedBoostSemaphore, 0, 1);
+    sem_init(&speedBoostSemaphore, 0, 2);
     sem_init(&keySemaphore, 0, 2);
     sem_init(&permitSemaphore, 0, 2);
     // Reset the ghost list
@@ -553,15 +650,13 @@ void *ghostController(void *arg)
         }
 
         // higher priority ghost wants the boost, push to the front of the list
-        if (ghost->pr == 1 && ghost->speed == 0 && ghost->speedClock.getElapsedTime().asSeconds() > 7)
+        if (ghost->pr == 1 && ghost->speed == 0 && ghost->speedClock.getElapsedTime().asSeconds() > 10)
         {
             ghost->speedClock.restart();
-            // Push the ghost back to the end of ghostlist
+            // Push the ghost to front of ghostlist
             pthread_mutex_lock(&ghostlistMutex);
-            GhostData *temp = ghostlist.front();
-            ghostlist.pop_front();
             ghostlist.push_front(ghost);
-            ghostlist.push_front(temp);
+            cout << "Ghost " << ghost->ghostID << " pushed to front of list because high priority" << endl;
             pthread_mutex_unlock(&ghostlistMutex);
             updatespeedboost();
             // Grant the speed boost
@@ -1110,7 +1205,7 @@ int main()
             ghost_texture3.loadFromFile("ghostscared.png");
             ghost_texture4.loadFromFile("ghostscared.png");
         }
-        if (powerupClock.getElapsedTime().asSeconds() >= 10)
+        if (powerupClock.getElapsedTime().asSeconds() >= 100)
         {
             powerupActive = false;
             musicEat.stop();
