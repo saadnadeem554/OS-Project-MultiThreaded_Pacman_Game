@@ -937,7 +937,12 @@ void movePacman(sf::Texture &pacman_texture)
    
 
 int main()
-{   
+{       
+    Music bgMusic;
+    if(!bgMusic.openFromFile("sounds/pacman_intermission.wav"))cout<<"issue";
+    bgMusic.setLoop(1);
+    bgMusic.setVolume(20);
+    bgMusic.play();
     if (!musicmenu.openFromFile("sounds/pacman_beginning.wav")) 
     cout<<"sound not loaded";
     if (!musicEat.openFromFile("sounds/pacman_eatfruit.wav")) 
